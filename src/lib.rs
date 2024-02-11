@@ -1,16 +1,19 @@
 mod messages;
 
 
+use messages::Message;
 use tokio::{io, net::TcpStream, sync::Mutex};
-use std::{io::Error, net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc};
+use std::{io::Error, net::{IpAddr, Ipv4Addr, SocketAddr}, str::FromStr, sync::Arc};
 
 
-type MessageHandler = fn(&str);
+type RawMessageHandler = fn(&str);
+type MessageHandler = fn(messages::Message);
 
 #[derive(Clone)]
 pub struct IrcConfig {
     host: SocketAddr,
-    raw_receive_handler: Option<MessageHandler>,
+    raw_receive_handler: Option<RawMessageHandler>,
+    receive_handler: Option<MessageHandler>,
 }
 
 impl IrcConfig {
@@ -18,6 +21,7 @@ impl IrcConfig {
         IrcConfig {
             host: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 6667),
             raw_receive_handler: None,
+            receive_handler: None,
         }
     }
 
@@ -26,8 +30,13 @@ impl IrcConfig {
         self
     }
 
-    pub fn receive_handler(&mut self, handler: MessageHandler) -> &mut Self {
+    pub fn set_raw_receive_handler(&mut self, handler: RawMessageHandler) -> &mut Self {
         self.raw_receive_handler = Some(handler);
+        self
+    }
+
+    pub fn set_receive_handler(&mut self, handler: MessageHandler) -> &mut Self {
+        self.receive_handler = Some(handler);
         self
     }
 
@@ -56,12 +65,20 @@ pub struct IrcConnection {
 
 impl IrcConnection {
     pub async fn send_raw<T: Into<String>>(&mut self, msg: T) -> Result<usize, Error> {
-        let msg = msg.into();
+        let mut msg: String = msg.into();
+        msg.push_str("\n");
+        self.stream.lock().await.try_write(msg.as_bytes())
+    }
+
+    pub async fn send(&mut self, msg: Message) -> Result<usize, Error> {
+        let mut msg = msg.to_string();
+        msg.push_str("\n");
+        print!("{}", msg);
         self.stream.lock().await.try_write(msg.as_bytes())
     }
 
     pub fn init(&self) {
-        if self.config.raw_receive_handler.is_some() {
+        if self.config.raw_receive_handler.is_some() || self.config.receive_handler.is_some() {
             tokio::spawn(Self::receive_loop(self.config.clone(), self.stream.clone()));
         }
     }
@@ -87,7 +104,12 @@ impl IrcConnection {
 
             let buf_str = &buf[0..bytes_read];
             match config.raw_receive_handler {
-                Some(func) => func(std::str::from_utf8(buf_str).unwrap()),
+                Some(func) => func(std::str::from_utf8(&buf_str).unwrap()),
+                _ => ()
+            }
+
+            match config.receive_handler {
+                Some(func) => func(messages::Message::from_str(std::str::from_utf8(&buf_str).unwrap()).unwrap()),
                 _ => ()
             }
         }
