@@ -79,3 +79,64 @@ impl fmt::Display for Params {
         }
     }
 }
+
+
+#[test]
+fn command_fmt() {
+    let result = Message {
+        prefix: None,
+        command: "NOTICE".to_string(),
+        params: Params(vec![":This is a test".to_string()])
+    };
+    assert_eq!(format!("{}", result), "NOTICE :This is a test");
+}
+
+#[test]
+fn command_fmt_with_prefix() {
+    let result = Message {
+        prefix: Some("tester".to_string()),
+        command: "NOTICE".to_string(),
+        params: Params(vec![":This is a test".to_string()])
+    };
+    assert_eq!(format!("{}", result), ":tester NOTICE :This is a test");
+}
+
+#[test]
+fn command_fmt_no_params() {
+    let result = Message {
+        prefix: None,
+        command: "QUIT".to_string(),
+        params: Params(vec![])
+    };
+    assert_eq!(format!("{}", result), "QUIT");
+}
+
+#[test]
+fn command_parse() {
+    let result = Message::from_str("PRIVMSG #test :This is a test").unwrap();
+    assert_eq!(result, Message {
+        prefix: None,
+        command: "PRIVMSG".to_string(),
+        params: Params(vec!["#test".to_string(), ":This is a test".to_string()]),
+    })
+}
+
+#[test]
+fn command_parse_with_prefix() {
+    let result = Message::from_str(":tester NOTICE :This is a test").unwrap();
+    assert_eq!(result, Message {
+        prefix: Some("tester".to_string()),
+        command: "NOTICE".to_string(),
+        params: Params(vec![":This is a test".to_string()]),
+    })
+}
+
+#[test]
+fn command_parse_no_params() {
+    let result = Message::from_str("QUIT").unwrap();
+    assert_eq!(result, Message {
+        prefix: None,
+        command: "QUIT".to_string(),
+        params: Params(vec![]),
+    })
+}
