@@ -13,7 +13,7 @@ type MessageHandler = fn(messages::Message);
 
 #[derive(Clone)]
 pub struct IrcConfig {
-    host: SocketAddr,
+    pub host: SocketAddr,
 
     pub nickname: String,
     pub username: String,
@@ -23,8 +23,8 @@ pub struct IrcConfig {
 
     pub password: Option<String>,
 
-    raw_receive_handler: Option<RawMessageHandler>,
-    receive_handler: Option<MessageHandler>,
+    pub raw_receive_handler: Option<RawMessageHandler>,
+    pub receive_handler: Option<MessageHandler>,
 }
 
 impl IrcConfig {
@@ -43,21 +43,6 @@ impl IrcConfig {
             raw_receive_handler: None,
             receive_handler: None,
         }
-    }
-
-    pub fn host(&mut self, host: SocketAddr) -> &mut Self {
-        self.host = host;
-        self
-    }
-
-    pub fn set_raw_receive_handler(&mut self, handler: RawMessageHandler) -> &mut Self {
-        self.raw_receive_handler = Some(handler);
-        self
-    }
-
-    pub fn set_receive_handler(&mut self, handler: MessageHandler) -> &mut Self {
-        self.receive_handler = Some(handler);
-        self
     }
 
     fn check_info(&self) -> bool {
