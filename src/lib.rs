@@ -1,3 +1,6 @@
+mod messages;
+
+
 use tokio::{io, net::TcpStream, sync::Mutex};
 use std::{io::Error, net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc};
 
@@ -54,7 +57,6 @@ pub struct IrcConnection {
 impl IrcConnection {
     pub async fn send_raw<T: Into<String>>(&mut self, msg: T) -> Result<usize, Error> {
         let msg = msg.into();
-        println!("{}", msg);
         self.stream.lock().await.try_write(msg.as_bytes())
     }
 
@@ -95,32 +97,67 @@ impl IrcConnection {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::str::FromStr;
 
-    use tokio::{net::lookup_host, time::sleep};
+    use crate::messages::{self, Message, Params};
 
-    use crate::IrcConfig;
+    #[test]
+    fn command_fmt() {
+        let result = messages::Message {
+            prefix: None,
+            command: "NOTICE".to_string(),
+            params: messages::Params(vec![":This is a test".to_string()])
+        };
+        assert_eq!(format!("{}", result), "NOTICE :This is a test");
+    }
 
-    #[tokio::test]
-    async fn connecting() {
-        let mut config = IrcConfig::new();
-        let config = config.host(lookup_host("irc.libera.chat:6667").await.unwrap().next().expect("Failed to resolve"))
-            .receive_handler(|msg| {
-                println!("{}", msg);
-            });
+    #[test]
+    fn command_fmt_with_prefix() {
+        let result = messages::Message {
+            prefix: Some("tester".to_string()),
+            command: "NOTICE".to_string(),
+            params: messages::Params(vec![":This is a test".to_string()])
+        };
+        assert_eq!(format!("{}", result), ":tester NOTICE :This is a test");
+    }
 
-        let mut connection = config.connect().await.unwrap();
+    #[test]
+    fn command_fmt_no_params() {
+        let result = messages::Message {
+            prefix: None,
+            command: "QUIT".to_string(),
+            params: messages::Params(vec![])
+        };
+        assert_eq!(format!("{}", result), "QUIT");
+    }
 
-        sleep(Duration::from_secs(5)).await;
+    #[test]
+    fn command_parse() {
+        let result = Message::from_str("PRIVMSG #test :This is a test").unwrap();
+        assert_eq!(result, Message {
+            prefix: None,
+            command: "PRIVMSG".to_string(),
+            params: Params(vec!["#test".to_string(), ":This is a test".to_string()]),
+        })
+    }
 
-        connection.send_raw("NICK mct33\n").await.unwrap();
-        sleep(Duration::from_secs(1)).await;
-        connection.send_raw("USER mct33 mct33 mct33 mct33\n").await.unwrap();
-        sleep(Duration::from_secs(3)).await;
-        connection.send_raw("JOIN #test\n").await.unwrap();
-        sleep(Duration::from_secs(1)).await;
-        connection.send_raw("PRIVMSG #test :testing..\n").await.unwrap();
-        sleep(Duration::from_secs(1)).await;
-        connection.send_raw("QUIT\n").await.unwrap();
+    #[test]
+    fn command_parse_with_prefix() {
+        let result = Message::from_str(":tester NOTICE :This is a test").unwrap();
+        assert_eq!(result, Message {
+            prefix: Some("tester".to_string()),
+            command: "NOTICE".to_string(),
+            params: Params(vec![":This is a test".to_string()]),
+        })
+    }
+
+    #[test]
+    fn command_parse_no_params() {
+        let result = Message::from_str("QUIT").unwrap();
+        assert_eq!(result, Message {
+            prefix: None,
+            command: "QUIT".to_string(),
+            params: Params(vec![]),
+        })
     }
 }
