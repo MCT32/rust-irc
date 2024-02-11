@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 mod messages;
 mod error;
 
@@ -7,6 +8,23 @@ use messages::{Message, Params};
 use tokio::{io::{self, Interest}, net::TcpStream, sync::Mutex};
 use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, str::FromStr, sync::Arc};
 
+=======
+pub mod messages;
+
+use core::fmt;
+use messages::{Message, Params};
+use std::{
+    error::Error,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
+    sync::Arc,
+};
+use tokio::{
+    io::{self, Interest},
+    net::TcpStream,
+    sync::Mutex,
+};
+>>>>>>> c865341 (have fun fucking with this mct <3)
 
 type RawMessageHandler = fn(&str);
 type MessageHandler = fn(messages::Message);
@@ -15,13 +33,13 @@ type MessageHandler = fn(messages::Message);
 pub struct IrcConfig {
     host: SocketAddr,
 
-    nickname: String,
-    username: String,
-    hostname: String,
-    servername: String,
-    realname: String,
+    pub nickname: String,
+    pub username: String,
+    pub hostname: String,
+    pub servername: String,
+    pub realname: String,
 
-    password: Option<String>,
+    pub password: Option<String>,
 
     raw_receive_handler: Option<RawMessageHandler>,
     receive_handler: Option<MessageHandler>,
@@ -85,11 +103,14 @@ impl IrcConfig {
                     Err(err) => Err(IrcConnectError::IrcInitError(err))
                 }
             }
+<<<<<<< HEAD
             Err(err) => Err(IrcConnectError::TcpConnectionError(err))
+=======
+            Err(_) => Err(IrcConnectError),
+>>>>>>> c865341 (have fun fucking with this mct <3)
         }
     }
 }
-
 
 pub struct IrcConnection {
     stream: Arc<Mutex<TcpStream>>,
@@ -102,7 +123,11 @@ impl IrcConnection {
         msg.push_str("\n");
         match self.stream.lock().await.try_write(msg.as_bytes()) {
             Ok(bytes_sent) => Ok(bytes_sent),
+<<<<<<< HEAD
             Err(err) => Err(IrcSendError::TcpSendError(err))
+=======
+            Err(_) => Err(IrcSendError),
+>>>>>>> c865341 (have fun fucking with this mct <3)
         }
     }
 
@@ -112,7 +137,11 @@ impl IrcConnection {
         print!("{}", msg);
         match self.stream.lock().await.try_write(msg.as_bytes()) {
             Ok(bytes_sent) => Ok(bytes_sent),
+<<<<<<< HEAD
             Err(err) => Err(IrcSendError::TcpSendError(err))
+=======
+            Err(_) => Err(IrcSendError),
+>>>>>>> c865341 (have fun fucking with this mct <3)
         }
     }
 
@@ -121,45 +150,87 @@ impl IrcConnection {
             tokio::spawn(Self::receive_loop(self.config.clone(), self.stream.clone()));
         }
 
+<<<<<<< HEAD
         if let Err(err) = self.stream.lock().await.ready(Interest::READABLE | Interest::WRITABLE).await {
             return Err(IrcInitError::TcpConnectionError(err));
         }
+=======
+        self.stream
+            .lock()
+            .await
+            .ready(Interest::READABLE | Interest::WRITABLE)
+            .await
+            .unwrap();
+>>>>>>> c865341 (have fun fucking with this mct <3)
 
         if let Some(password) = &self.config.password {
             if let Err(err) = self.send(Message {
                 prefix: None,
                 command: "PASS".to_string(),
+<<<<<<< HEAD
                 params: Params(vec![password.to_string()])
             }).await {
                 return Err(IrcInitError::IrcSendError(err));
             }
+=======
+                params: Params(vec![password.to_string()]),
+            })
+            .await
+            .unwrap();
+>>>>>>> c865341 (have fun fucking with this mct <3)
         }
 
         if let Err(err) = self.send(Message {
             prefix: None,
             command: "NICK".to_string(),
+<<<<<<< HEAD
             params: Params(vec![self.config.nickname.clone()])
         }).await {
             return Err(IrcInitError::IrcSendError(err));
         }
+=======
+            params: Params(vec![self.config.nickname.clone()]),
+        })
+        .await
+        .unwrap();
+>>>>>>> c865341 (have fun fucking with this mct <3)
 
         if let Err(err) = self.send(Message {
             prefix: None,
             command: "USER".to_string(),
+<<<<<<< HEAD
             params: Params(vec![self.config.username.clone(), self.config.hostname.clone(), self.config.servername.clone(), self.config.realname.clone()])
         }).await {
             return Err(IrcInitError::IrcSendError(err));
         }
 
         Ok(())
+=======
+            params: Params(vec![
+                self.config.username.clone(),
+                self.config.hostname.clone(),
+                self.config.servername.clone(),
+                self.config.realname.clone(),
+            ]),
+        })
+        .await
+        .unwrap();
+>>>>>>> c865341 (have fun fucking with this mct <3)
     }
 
     pub async fn quit(&mut self) -> Result<usize, IrcSendError> {
         self.send(Message {
             prefix: None,
             command: "QUIT".to_string(),
+<<<<<<< HEAD
             params: Params(vec![])
         }).await
+=======
+            params: Params(vec![]),
+        })
+        .await
+        .unwrap();
+>>>>>>> c865341 (have fun fucking with this mct <3)
     }
 
     async fn receive_loop(config: IrcConfig, stream: Arc<Mutex<TcpStream>>) {
@@ -184,17 +255,18 @@ impl IrcConnection {
             let buf_str = &buf[0..bytes_read];
             match config.raw_receive_handler {
                 Some(func) => func(std::str::from_utf8(&buf_str).unwrap()),
-                _ => ()
+                _ => (),
             }
 
             match config.receive_handler {
-                Some(func) => func(messages::Message::from_str(std::str::from_utf8(&buf_str).unwrap()).unwrap()),
-                _ => ()
+                Some(func) => func(
+                    messages::Message::from_str(std::str::from_utf8(&buf_str).unwrap()).unwrap(),
+                ),
+                _ => (),
             }
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -207,7 +279,7 @@ mod tests {
         let result = messages::Message {
             prefix: None,
             command: "NOTICE".to_string(),
-            params: messages::Params(vec![":This is a test".to_string()])
+            params: messages::Params(vec![":This is a test".to_string()]),
         };
         assert_eq!(format!("{}", result), "NOTICE :This is a test");
     }
@@ -217,7 +289,7 @@ mod tests {
         let result = messages::Message {
             prefix: Some("tester".to_string()),
             command: "NOTICE".to_string(),
-            params: messages::Params(vec![":This is a test".to_string()])
+            params: messages::Params(vec![":This is a test".to_string()]),
         };
         assert_eq!(format!("{}", result), ":tester NOTICE :This is a test");
     }
@@ -227,7 +299,7 @@ mod tests {
         let result = messages::Message {
             prefix: None,
             command: "QUIT".to_string(),
-            params: messages::Params(vec![])
+            params: messages::Params(vec![]),
         };
         assert_eq!(format!("{}", result), "QUIT");
     }
@@ -235,30 +307,39 @@ mod tests {
     #[test]
     fn command_parse() {
         let result = Message::from_str("PRIVMSG #test :This is a test").unwrap();
-        assert_eq!(result, Message {
-            prefix: None,
-            command: "PRIVMSG".to_string(),
-            params: Params(vec!["#test".to_string(), ":This is a test".to_string()]),
-        })
+        assert_eq!(
+            result,
+            Message {
+                prefix: None,
+                command: "PRIVMSG".to_string(),
+                params: Params(vec!["#test".to_string(), ":This is a test".to_string()]),
+            }
+        )
     }
 
     #[test]
     fn command_parse_with_prefix() {
         let result = Message::from_str(":tester NOTICE :This is a test").unwrap();
-        assert_eq!(result, Message {
-            prefix: Some("tester".to_string()),
-            command: "NOTICE".to_string(),
-            params: Params(vec![":This is a test".to_string()]),
-        })
+        assert_eq!(
+            result,
+            Message {
+                prefix: Some("tester".to_string()),
+                command: "NOTICE".to_string(),
+                params: Params(vec![":This is a test".to_string()]),
+            }
+        )
     }
 
     #[test]
     fn command_parse_no_params() {
         let result = Message::from_str("QUIT").unwrap();
-        assert_eq!(result, Message {
-            prefix: None,
-            command: "QUIT".to_string(),
-            params: Params(vec![]),
-        })
+        assert_eq!(
+            result,
+            Message {
+                prefix: None,
+                command: "QUIT".to_string(),
+                params: Params(vec![]),
+            }
+        )
     }
 }
