@@ -7,6 +7,8 @@ pub struct User {
     pub hostname: String,
     pub servername: String,
     pub realname: String,
+
+    pub flags: UserFlags,
 }
 
 impl User {
@@ -25,4 +27,12 @@ impl User {
             params: Params(vec![self.username.clone(), self.hostname.clone(), self.servername.clone(), self.realname.clone()]),
         }
     }
+}
+
+#[derive(Default, Clone)]
+pub struct UserFlags {
+    pub invisible: bool,
+    pub server_notices: bool,
+    pub wallops: bool,
+    pub operator: bool,
 }
