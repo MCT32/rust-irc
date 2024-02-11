@@ -1,34 +1,15 @@
 mod messages;
+mod error;
 
 
+use error::{IrcConnectError, IrcInitError, IrcSendError};
 use messages::{Message, Params};
 use tokio::{io::{self, Interest}, net::TcpStream, sync::Mutex};
-use core::fmt;
-use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr}, str::FromStr, sync::Arc};
+use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, str::FromStr, sync::Arc};
 
 
 type RawMessageHandler = fn(&str);
 type MessageHandler = fn(messages::Message);
-
-// TODO: Improve error verbosity
-#[derive(Debug)]
-pub struct IrcConnectError;
-impl Error for IrcConnectError {}
-impl fmt::Display for IrcConnectError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "could not connect to irc server")
-    }
-}
-
-// TODO: Improve error verbosity
-#[derive(Debug)]
-pub struct IrcSendError;
-impl Error for IrcSendError {}
-impl fmt::Display for IrcSendError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "could not send message")
-    }
-}
 
 #[derive(Clone)]
 pub struct IrcConfig {
@@ -89,7 +70,7 @@ impl IrcConfig {
 
     pub async fn connect(&self) -> Result<IrcConnection, IrcConnectError> {
         if !self.check_info() {
-            return Err(IrcConnectError);
+            return Err(IrcConnectError::UserInfoMissing);
         }
 
         match TcpStream::connect(self.host).await {
@@ -99,11 +80,12 @@ impl IrcConfig {
                     config: self.clone(),
                 };
 
-                connection.init().await;
-
-                Ok(connection)
+                match connection.init().await {
+                    Ok(_) => Ok(connection),
+                    Err(err) => Err(IrcConnectError::IrcInitError(err))
+                }
             }
-            Err(_) => Err(IrcConnectError)
+            Err(err) => Err(IrcConnectError::TcpConnectionError(err))
         }
     }
 }
@@ -120,7 +102,7 @@ impl IrcConnection {
         msg.push_str("\n");
         match self.stream.lock().await.try_write(msg.as_bytes()) {
             Ok(bytes_sent) => Ok(bytes_sent),
-            Err(_) => Err(IrcSendError)
+            Err(err) => Err(IrcSendError::TcpSendError(err))
         }
     }
 
@@ -130,44 +112,54 @@ impl IrcConnection {
         print!("{}", msg);
         match self.stream.lock().await.try_write(msg.as_bytes()) {
             Ok(bytes_sent) => Ok(bytes_sent),
-            Err(_) => Err(IrcSendError)
+            Err(err) => Err(IrcSendError::TcpSendError(err))
         }
     }
 
-    pub async fn init(&mut self) {
+    pub async fn init(&mut self) -> Result<(), IrcInitError> {
         if self.config.raw_receive_handler.is_some() || self.config.receive_handler.is_some() {
             tokio::spawn(Self::receive_loop(self.config.clone(), self.stream.clone()));
         }
 
-        self.stream.lock().await.ready(Interest::READABLE | Interest::WRITABLE).await.unwrap();
+        if let Err(err) = self.stream.lock().await.ready(Interest::READABLE | Interest::WRITABLE).await {
+            return Err(IrcInitError::TcpConnectionError(err));
+        }
 
         if let Some(password) = &self.config.password {
-            self.send(Message {
+            if let Err(err) = self.send(Message {
                 prefix: None,
                 command: "PASS".to_string(),
                 params: Params(vec![password.to_string()])
-            }).await.unwrap();
+            }).await {
+                return Err(IrcInitError::IrcSendError(err));
+            }
         }
 
-        self.send(Message {
+        if let Err(err) = self.send(Message {
             prefix: None,
             command: "NICK".to_string(),
             params: Params(vec![self.config.nickname.clone()])
-        }).await.unwrap();
+        }).await {
+            return Err(IrcInitError::IrcSendError(err));
+        }
 
-        self.send(Message {
+        if let Err(err) = self.send(Message {
             prefix: None,
             command: "USER".to_string(),
             params: Params(vec![self.config.username.clone(), self.config.hostname.clone(), self.config.servername.clone(), self.config.realname.clone()])
-        }).await.unwrap();
+        }).await {
+            return Err(IrcInitError::IrcSendError(err));
+        }
+
+        Ok(())
     }
 
-    pub async fn quit(&mut self) {
+    pub async fn quit(&mut self) -> Result<usize, IrcSendError> {
         self.send(Message {
             prefix: None,
             command: "QUIT".to_string(),
             params: Params(vec![])
-        }).await.unwrap();
+        }).await
     }
 
     async fn receive_loop(config: IrcConfig, stream: Arc<Mutex<TcpStream>>) {
