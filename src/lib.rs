@@ -1,5 +1,5 @@
-mod messages;
-mod error;
+pub mod messages;
+pub mod error;
 
 
 use error::{IrcConnectError, IrcInitError, IrcSendError};
