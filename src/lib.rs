@@ -1,6 +1,7 @@
 pub mod messages;
 pub mod error;
 pub mod config;
+pub mod users;
 
 
 use config::IrcConfig;
@@ -54,19 +55,11 @@ impl IrcConnection {
             }
         }
 
-        if let Err(err) = self.send(Message {
-            prefix: None,
-            command: "NICK".to_string(),
-            params: Params(vec![self.config.nickname.clone()])
-        }).await {
+        if let Err(err) = self.send(self.config.user.nick_command()).await {
             return Err(IrcInitError::IrcSendError(err));
         }
 
-        if let Err(err) = self.send(Message {
-            prefix: None,
-            command: "USER".to_string(),
-            params: Params(vec![self.config.username.clone(), self.config.hostname.clone(), self.config.servername.clone(), self.config.realname.clone()])
-        }).await {
+        if let Err(err) = self.send(self.config.user.user_command()).await {
             return Err(IrcInitError::IrcSendError(err));
         }
 

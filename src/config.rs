@@ -1,18 +1,16 @@
 use tokio::{net::TcpStream, sync::Mutex};
 use std::{net::SocketAddr, sync::Arc};
 
+use crate::{error::{IrcConfigBuilderError, IrcConnectError}, messages::Message, users::User, IrcConnection};
+
 type RawMessageHandler = fn(&str);
-type MessageHandler = fn(super::messages::Message);
+type MessageHandler = fn(Message);
 
 #[derive(Clone)]
 pub struct IrcConfig {
     host: SocketAddr,
 
-    pub nickname: String,
-    pub username: String,
-    pub hostname: String,
-    pub servername: String,
-    pub realname: String,
+    pub user: User,
 
     pub password: Option<String>,
 
@@ -25,20 +23,20 @@ impl IrcConfig {
         IrcConfigBuilder::default()
     }
 
-    pub async fn connect(&self) -> Result<super::IrcConnection, super::error::IrcConnectError> {
+    pub async fn connect(&self) -> Result<IrcConnection, IrcConnectError> {
         match TcpStream::connect(self.host).await {
             Ok(stream) => {
-                let mut connection = super::IrcConnection {
+                let mut connection = IrcConnection {
                     stream: Arc::new(Mutex::new(stream)),
                     config: self.clone(),
                 };
 
                 match connection.init().await {
                     Ok(_) => Ok(connection),
-                    Err(err) => Err(super::error::IrcConnectError::IrcInitError(err))
+                    Err(err) => Err(IrcConnectError::IrcInitError(err))
                 }
             }
-            Err(err) => Err(super::error::IrcConnectError::TcpConnectionError(err))
+            Err(err) => Err(IrcConnectError::TcpConnectionError(err))
         }
     }
 }
@@ -46,11 +44,7 @@ impl IrcConfig {
 #[derive(Default)]
 pub struct IrcConfigBuilder {
     // Required, no default
-    nickname: Option<String>,
-    username: Option<String>,
-    hostname: Option<String>,
-    servername: Option<String>,
-    realname: Option<String>,
+    user: Option<User>,
 
     password: Option<String>,
 
@@ -61,11 +55,7 @@ pub struct IrcConfigBuilder {
 impl IrcConfigBuilder {
     pub fn new() -> IrcConfigBuilder {
         IrcConfigBuilder {
-            nickname: None,
-            username: None,
-            hostname: None,
-            servername: None,
-            realname: None,
+            user: None,
 
             password: None,
 
@@ -74,46 +64,23 @@ impl IrcConfigBuilder {
         }
     }
 
-    pub fn nickname(mut self, nickname: String) -> IrcConfigBuilder {
-        self.nickname = Some(nickname);
+    pub fn user(mut self, user: User) -> IrcConfigBuilder {
+        self.user = Some(user);
         self
     }
 
-    pub fn username(mut self, username: String) -> IrcConfigBuilder {
-        self.username = Some(username);
+    pub fn password(mut self, password: String) -> IrcConfigBuilder {
+        self.password = Some(password);
         self
     }
 
-    pub fn hostname(mut self, hostname: String) -> IrcConfigBuilder {
-        self.hostname = Some(hostname);
-        self
-    }
-
-    pub fn servername(mut self, servername: String) -> IrcConfigBuilder {
-        self.servername = Some(servername);
-        self
-    }
-
-    pub fn realname(mut self, realname: String) -> IrcConfigBuilder {
-        self.realname = Some(realname);
-        self
-    }
-
-    pub fn host(self, host: SocketAddr) -> Result<IrcConfig, super::error::IrcConfigBuilderError> {
-        if self.nickname.is_none()
-            || self.username.is_none()
-            || self.hostname.is_none()
-            || self.servername.is_none()
-            || self.realname.is_none() {
-                return Err(super::error::IrcConfigBuilderError);
-            }
+    pub fn host(self, host: SocketAddr) -> Result<IrcConfig, IrcConfigBuilderError> {
+        if self.user.is_none() {
+            return Err(IrcConfigBuilderError);
+        }
         
         Ok(IrcConfig {
-            nickname: self.nickname.unwrap(),
-            username: self.username.unwrap(),
-            hostname: self.hostname.unwrap(),
-            servername: self.servername.unwrap(),
-            realname: self.realname.unwrap(),
+            user: self.user.unwrap(),
 
             password: self.password,
 
