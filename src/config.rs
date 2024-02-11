@@ -74,6 +74,16 @@ impl IrcConfigBuilder {
         self
     }
 
+    pub fn set_receive_handler(mut self, handler: MessageHandler) -> IrcConfigBuilder {
+        self.receive_handler = Some(handler);
+        self
+    }
+
+    pub fn set_raw_receive_handler(mut self, handler: RawMessageHandler) -> IrcConfigBuilder {
+        self.raw_receive_handler = Some(handler);
+        self
+    }
+
     pub fn host(self, host: SocketAddr) -> Result<IrcConfig, IrcConfigBuilderError> {
         if self.user.is_none() {
             return Err(IrcConfigBuilderError);
