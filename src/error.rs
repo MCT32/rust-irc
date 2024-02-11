@@ -5,7 +5,6 @@ use tokio::io;
 
 #[derive(Debug)]
 pub enum IrcConnectError {
-    UserInfoMissing,
     TcpConnectionError(io::Error),
     IrcInitError(IrcInitError),
 }
@@ -14,7 +13,6 @@ impl Error for IrcConnectError {}
 impl fmt::Display for IrcConnectError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {
-            Self::UserInfoMissing => "missing user info".to_string(),
             Self::TcpConnectionError(err) => format!("tcp connection error: {:#?}", err),
             Self::IrcInitError(err) => format!("irc init error: {:#?}", err)
         };
@@ -54,5 +52,15 @@ impl fmt::Display for IrcInitError {
         };
 
         write!(f, "{}", msg)
+    }
+}
+
+#[derive(Debug)]
+pub struct IrcConfigBuilderError;
+impl Error for IrcConfigBuilderError {}
+
+impl fmt::Display for IrcConfigBuilderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "missing user information")
     }
 }

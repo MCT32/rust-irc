@@ -1,79 +1,13 @@
 pub mod messages;
 pub mod error;
+pub mod config;
 
 
-use error::{IrcConnectError, IrcInitError, IrcSendError};
+use config::IrcConfig;
+use error::{IrcInitError, IrcSendError};
 use messages::{Message, Params};
 use tokio::{io::{self, Interest}, net::TcpStream, sync::Mutex};
-use std::{net::{IpAddr, Ipv4Addr, SocketAddr}, str::FromStr, sync::Arc};
-
-
-type RawMessageHandler = fn(&str);
-type MessageHandler = fn(messages::Message);
-
-#[derive(Clone)]
-pub struct IrcConfig {
-    pub host: SocketAddr,
-
-    pub nickname: String,
-    pub username: String,
-    pub hostname: String,
-    pub servername: String,
-    pub realname: String,
-
-    pub password: Option<String>,
-
-    pub raw_receive_handler: Option<RawMessageHandler>,
-    pub receive_handler: Option<MessageHandler>,
-}
-
-impl IrcConfig {
-    pub fn new() -> Self {
-        IrcConfig {
-            host: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 6667),
-
-            nickname: "".to_string(),
-            username: "".to_string(),
-            hostname: "".to_string(),
-            servername: "".to_string(),
-            realname: "".to_string(),
-
-            password: None,
-
-            raw_receive_handler: None,
-            receive_handler: None,
-        }
-    }
-
-    fn check_info(&self) -> bool {
-        !self.nickname.is_empty()
-            && !self.username.is_empty()
-            && !self.hostname.is_empty()
-            && !self.servername.is_empty()
-            && !self.realname.is_empty()
-    }
-
-    pub async fn connect(&self) -> Result<IrcConnection, IrcConnectError> {
-        if !self.check_info() {
-            return Err(IrcConnectError::UserInfoMissing);
-        }
-
-        match TcpStream::connect(self.host).await {
-            Ok(stream) => {
-                let mut connection = IrcConnection {
-                    stream: Arc::new(Mutex::new(stream)),
-                    config: self.clone(),
-                };
-
-                match connection.init().await {
-                    Ok(_) => Ok(connection),
-                    Err(err) => Err(IrcConnectError::IrcInitError(err))
-                }
-            }
-            Err(err) => Err(IrcConnectError::TcpConnectionError(err))
-        }
-    }
-}
+use std::{str::FromStr, sync::Arc};
 
 
 pub struct IrcConnection {
