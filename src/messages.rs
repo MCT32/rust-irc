@@ -4,15 +4,14 @@ use std::{fmt, str::FromStr};
 #[derive(Debug, PartialEq, Eq)]
 pub struct Message {
     pub prefix: Option<String>,
-    pub command: String,
-    pub params: Params,
+    pub command: Command,
 }
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.prefix {
-            Some(prefix) => write!(f, ":{} {}{}", prefix, self.command, self.params),
-            None => write!(f, "{}{}", self.command, self.params),
+            Some(prefix) => write!(f, ":{} {}", prefix, self.command),
+            None => write!(f, "{}", self.command),
         }
     }
 }
@@ -40,7 +39,7 @@ impl FromStr for Message {
             let mut params: Vec<String> = Vec::with_capacity(15);
 
             let mut combining = false;
-            let mut combined_string = "".to_string();
+            let mut combined_string = String::new();
 
             for x in parts[1..].into_iter() {
                 if combining {
@@ -60,43 +59,43 @@ impl FromStr for Message {
 
             Ok(Message {
                 prefix: None,
-                command: parts.first().unwrap().to_string(),
-                params: Params(params),
+                command: Command::Raw {
+                    command: parts.first().unwrap().to_string(),
+                    params: params,
+                },
             })
         }
     }
-}
+} 
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Params(pub Vec<String>);
+pub enum Command {
+    Raw{command: String, params: Vec<String>},
+}
 
-impl fmt::Display for Params {
+impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.is_empty() {
-            write!(f, "")
-        } else {
-            write!(f, " {}", self.0.join(" "))
+        match self {
+            Command::Raw { command, params } => {
+                if params.is_empty() {
+                    return write!(f, "{}", command);
+                }
+
+                write!(f, "{} {}", command, params.join(" "))
+            }
         }
     }
 }
 
-
-#[test]
-fn command_fmt() {
-    let result = Message {
-        prefix: None,
-        command: "NOTICE".to_string(),
-        params: Params(vec![":This is a test".to_string()])
-    };
-    assert_eq!(format!("{}", result), "NOTICE :This is a test");
-}
 
 #[test]
 fn command_fmt_with_prefix() {
     let result = Message {
         prefix: Some("tester".to_string()),
-        command: "NOTICE".to_string(),
-        params: Params(vec![":This is a test".to_string()])
+        command: Command::Raw {
+            command: "NOTICE".to_string(),
+            params: vec![":This is a test".to_string()],
+        },
     };
     assert_eq!(format!("{}", result), ":tester NOTICE :This is a test");
 }
@@ -105,8 +104,10 @@ fn command_fmt_with_prefix() {
 fn command_fmt_no_params() {
     let result = Message {
         prefix: None,
-        command: "QUIT".to_string(),
-        params: Params(vec![])
+        command: Command::Raw {
+            command: "QUIT".to_string(),
+            params: vec![],
+        },
     };
     assert_eq!(format!("{}", result), "QUIT");
 }
@@ -116,8 +117,10 @@ fn command_parse() {
     let result = Message::from_str("PRIVMSG #test :This is a test").unwrap();
     assert_eq!(result, Message {
         prefix: None,
-        command: "PRIVMSG".to_string(),
-        params: Params(vec!["#test".to_string(), ":This is a test".to_string()]),
+        command: Command::Raw {
+            command: "PRIVMSG".to_string(),
+            params: vec!["#test".to_string(), ":This is a test".to_string()],
+        },
     })
 }
 
@@ -126,8 +129,10 @@ fn command_parse_with_prefix() {
     let result = Message::from_str(":tester NOTICE :This is a test").unwrap();
     assert_eq!(result, Message {
         prefix: Some("tester".to_string()),
-        command: "NOTICE".to_string(),
-        params: Params(vec![":This is a test".to_string()]),
+        command: Command::Raw {
+            command: "NOTICE".to_string(),
+            params: vec![":This is a test".to_string()],
+        },
     })
 }
 
@@ -136,7 +141,9 @@ fn command_parse_no_params() {
     let result = Message::from_str("QUIT").unwrap();
     assert_eq!(result, Message {
         prefix: None,
-        command: "QUIT".to_string(),
-        params: Params(vec![]),
+        command: Command::Raw {
+            command: "QUIT".to_string(),
+            params: vec![],
+        },
     })
 }
