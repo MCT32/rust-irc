@@ -15,20 +15,14 @@ impl User {
     pub fn nick_command(&self) -> Message {
         Message {
             prefix: None,
-            command: Command::Raw {
-                command: "NICK".to_string(),
-                params: vec![self.nickname.clone()],
-            },
+            command: Command::Nick(self.nickname.clone()),
         }
     }
 
     pub fn user_command(&self) -> Message {
         Message {
             prefix: None,
-            command: Command::Raw {
-                command: "USER".to_string(),
-                params: vec![self.username.clone(), self.hostname.clone(), self.servername.clone(), self.realname.clone()],
-            },
+            command: Command::User(self.username.clone(), self.hostname.clone(), self.servername.clone(), self.realname.clone()),
         }
     }
 }

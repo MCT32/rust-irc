@@ -1,4 +1,4 @@
-use std::{fmt, str::FromStr};
+use std::{fmt::{self, Error}, str::FromStr};
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -59,30 +59,53 @@ impl FromStr for Message {
 
             Ok(Message {
                 prefix: None,
-                command: Command::Raw {
-                    command: parts.first().unwrap().to_string(),
-                    params: params,
-                },
+                command: Command::Raw(
+                    parts.first().unwrap().to_string(),
+                    params,
+                ),
             })
         }
     }
 } 
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Command {
-    Raw{command: String, params: Vec<String>},
+    Pass(String),
+    Nick(String),
+    User(String, String, String, String),
+    Quit,
+    Notice(String, String),
+    PrivMsg(String, String),
+    Raw(String, Vec<String>),
+}
+
+impl Command {
+    pub fn raw(self) -> Command {
+        match self {
+            Command::Pass(pass) => Command::Raw("PASS".to_string(), vec![pass]),
+            Command::Nick(nickname) => Command::Raw("NICK".to_string(), vec![nickname]),
+            Command::User(username, hostname, servername, realname) => {
+                Command::Raw("USER".to_string(), vec![username, hostname, servername, realname])
+            },
+            Command::Quit => Command::Raw("QUIT".to_string(), vec![]),
+            Command::Notice(nickname, notice) => Command::Raw("NOTICE".to_string(), vec![nickname, notice]),
+            Command::PrivMsg(receiver, message) => Command::Raw("PRIVMSG".to_string(), vec![receiver, message]),
+            Command::Raw(_, _) => self,
+        }
+    }
 }
 
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Command::Raw { command, params } => {
+        match self.clone().raw() {
+            Command::Raw(command, params) => {
                 if params.is_empty() {
                     return write!(f, "{}", command);
                 }
-
+        
                 write!(f, "{} {}", command, params.join(" "))
-            }
+            },
+            _ => Err(Error),
         }
     }
 }
@@ -92,22 +115,16 @@ impl fmt::Display for Command {
 fn command_fmt_with_prefix() {
     let result = Message {
         prefix: Some("tester".to_string()),
-        command: Command::Raw {
-            command: "NOTICE".to_string(),
-            params: vec![":This is a test".to_string()],
-        },
+        command: Command::Notice("tester".to_string(), ":This is a test".to_string()),
     };
-    assert_eq!(format!("{}", result), ":tester NOTICE :This is a test");
+    assert_eq!(format!("{}", result), ":tester NOTICE tester :This is a test");
 }
 
 #[test]
 fn command_fmt_no_params() {
     let result = Message {
         prefix: None,
-        command: Command::Raw {
-            command: "QUIT".to_string(),
-            params: vec![],
-        },
+        command: Command::Quit,
     };
     assert_eq!(format!("{}", result), "QUIT");
 }
@@ -117,22 +134,16 @@ fn command_parse() {
     let result = Message::from_str("PRIVMSG #test :This is a test").unwrap();
     assert_eq!(result, Message {
         prefix: None,
-        command: Command::Raw {
-            command: "PRIVMSG".to_string(),
-            params: vec!["#test".to_string(), ":This is a test".to_string()],
-        },
+        command: Command::PrivMsg("#test".to_string(), ":This is a test".to_string()),
     })
 }
 
 #[test]
 fn command_parse_with_prefix() {
-    let result = Message::from_str(":tester NOTICE :This is a test").unwrap();
+    let result = Message::from_str(":tester NOTICE tester :This is a test").unwrap();
     assert_eq!(result, Message {
         prefix: Some("tester".to_string()),
-        command: Command::Raw {
-            command: "NOTICE".to_string(),
-            params: vec![":This is a test".to_string()],
-        },
+        command: Command::Notice("tester".to_string(), ":This is a test".to_string()),
     })
 }
 
@@ -141,9 +152,6 @@ fn command_parse_no_params() {
     let result = Message::from_str("QUIT").unwrap();
     assert_eq!(result, Message {
         prefix: None,
-        command: Command::Raw {
-            command: "QUIT".to_string(),
-            params: vec![],
-        },
+        command: Command::Quit,
     })
 }

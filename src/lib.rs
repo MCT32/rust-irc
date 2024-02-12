@@ -48,10 +48,7 @@ impl IrcConnection {
         if let Some(password) = &self.config.password {
             if let Err(err) = self.send(Message {
                 prefix: None,
-                command: Command::Raw {
-                    command: "PASS".to_string(),
-                    params: vec![password.to_string()],
-                },
+                command: Command::Pass(password.to_string()),
             }).await {
                 return Err(IrcInitError::IrcSendError(err));
             }
@@ -71,10 +68,7 @@ impl IrcConnection {
     pub async fn quit(&mut self) -> Result<usize, IrcSendError> {
         self.send(Message {
             prefix: None,
-            command: Command::Raw {
-                command: "QUIT".to_string(),
-                params: vec![],
-            },
+            command: Command::Quit,
         }).await
     }
 
