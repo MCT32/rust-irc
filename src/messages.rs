@@ -57,12 +57,20 @@ impl FromStr for Message {
                 params.append(&mut vec![combined_string])
             }
 
+            let command = parts.first().unwrap().to_string();
+
             Ok(Message {
                 prefix: None,
-                command: Command::Raw(
-                    parts.first().unwrap().to_string(),
-                    params,
-                ),
+                command: match command.as_str() {
+                    "PASS" => Command::Pass(params[0].clone()),
+                    "NICK" => Command::Nick(params[0].clone()),
+                    "USER" => Command::User(params[0].clone(), params[1].clone(), params[2].clone(), params[3].clone()),
+                    "QUIT" => Command::Quit,
+                    "NOTICE" => Command::Notice(params[0].clone(), params[1].clone()),
+                    "PRIVMSG" => Command::PrivMsg(params[0].clone(), params[1].clone()),
+                    "JOIN" => Command::Join(params[0].clone()),
+                    _ => Command::Raw(command, params)
+                }
             })
         }
     }
