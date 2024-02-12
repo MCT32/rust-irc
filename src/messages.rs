@@ -76,6 +76,7 @@ pub enum Command {
     Quit,
     Notice(String, String),
     PrivMsg(String, String),
+    Join(String),
     Raw(String, Vec<String>),
 }
 
@@ -90,6 +91,7 @@ impl Command {
             Command::Quit => Command::Raw("QUIT".to_string(), vec![]),
             Command::Notice(nickname, notice) => Command::Raw("NOTICE".to_string(), vec![nickname, notice]),
             Command::PrivMsg(receiver, message) => Command::Raw("PRIVMSG".to_string(), vec![receiver, message]),
+            Command::Join(channel) => Command::Raw("JOIN".to_string(), vec![channel]),
             Command::Raw(_, _) => self,
         }
     }
