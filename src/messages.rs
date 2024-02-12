@@ -81,18 +81,18 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn raw(self) -> Command {
+    pub fn raw(&self) -> Command { // borrowed self for u <3 - sam (for me not u)
         match self {
-            Command::Pass(pass) => Command::Raw("PASS".to_string(), vec![pass]),
-            Command::Nick(nickname) => Command::Raw("NICK".to_string(), vec![nickname]),
+            Command::Pass(pass) => Command::Raw("PASS".to_string(), vec![pass.clone()]),
+            Command::Nick(nickname) => Command::Raw("NICK".to_string(), vec![nickname.clone()]),
             Command::User(username, hostname, servername, realname) => {
-                Command::Raw("USER".to_string(), vec![username, hostname, servername, realname])
+                Command::Raw("USER".to_string(), vec![username.clone(), hostname.clone(), servername.clone(), realname.clone()])
             },
             Command::Quit => Command::Raw("QUIT".to_string(), vec![]),
-            Command::Notice(nickname, notice) => Command::Raw("NOTICE".to_string(), vec![nickname, notice]),
-            Command::PrivMsg(receiver, message) => Command::Raw("PRIVMSG".to_string(), vec![receiver, message]),
-            Command::Join(channel) => Command::Raw("JOIN".to_string(), vec![channel]),
-            Command::Raw(_, _) => self,
+            Command::Notice(nickname, notice) => Command::Raw("NOTICE".to_string(), vec![nickname.clone(), notice.clone()]),
+            Command::PrivMsg(receiver, message) => Command::Raw("PRIVMSG".to_string(), vec![receiver.clone(), message.clone()]),
+            Command::Join(channel) => Command::Raw("JOIN".to_string(), vec![channel.clone()]), // and cloned fucking everything. sorry
+            Command::Raw(_, _) => self.clone(), // svelte says u dont know how to write rust. also i cloned self
         }
     }
 }
