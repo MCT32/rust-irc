@@ -29,7 +29,7 @@ impl IrcConnection {
     pub async fn send(&mut self, msg: Message) -> Result<usize, IrcSendError> {
         let mut msg = msg.to_string();
         msg.push_str("\n");
-        // print!("{}", msg); i'll put this abck if it doesnt work, but i think this is why im seeing all my messages + quit command
+        print!("{}", msg); 
         match self.stream.lock().await.try_write(msg.as_bytes()) {
             Ok(bytes_sent) => Ok(bytes_sent),
             Err(err) => Err(IrcSendError::TcpSendError(err))

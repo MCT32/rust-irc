@@ -1,7 +1,7 @@
 use std::{fmt::{self, Error}, str::FromStr};
 
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Message {
     pub prefix: Option<String>,
     pub command: Command,
