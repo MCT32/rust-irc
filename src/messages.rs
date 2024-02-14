@@ -1,4 +1,9 @@
-use std::{fmt::{self, Error}, str::FromStr};
+mod replys;
+
+
+use std::{fmt, str::FromStr};
+
+use replys::{Reply, ErrorReply};
 
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -59,6 +64,20 @@ impl FromStr for Message {
 
             let command = parts.first().unwrap().to_string();
 
+            if let Ok(code) = command.parse::<u16>() {
+                if code >= 400 && code < 700 {
+                    return Ok(Message {
+                        prefix: None,
+                        command: Command::Reply(Err(ErrorReply::Raw(code, params)))
+                    });
+                } else {
+                    return Ok(Message {
+                        prefix: None,
+                        command: Command::Reply(Ok(Reply::Raw(code, params)))
+                    });
+                }
+            }
+
             Ok(Message {
                 prefix: None,
                 command: match command.as_str() {
@@ -69,6 +88,7 @@ impl FromStr for Message {
                     "NOTICE" => Command::Notice(params[0].clone(), params[1].clone()),
                     "PRIVMSG" => Command::PrivMsg(params[0].clone(), params[1].clone()),
                     "JOIN" => Command::Join(params[0].clone()),
+                    "PART" => Command::Part(params),
                     _ => Command::Raw(command, params)
                 }
             })
@@ -85,6 +105,8 @@ pub enum Command {
     Notice(String, String),
     PrivMsg(String, String),
     Join(String),
+    Reply(Result<Reply, ErrorReply>),
+    Part(Vec<String>),
     Raw(String, Vec<String>),
 }
 
@@ -100,6 +122,13 @@ impl Command {
             Command::Notice(nickname, notice) => Command::Raw("NOTICE".to_string(), vec![nickname.clone(), notice.clone()]),
             Command::PrivMsg(receiver, message) => Command::Raw("PRIVMSG".to_string(), vec![receiver.clone(), message.clone()]),
             Command::Join(channel) => Command::Raw("JOIN".to_string(), vec![channel.clone()]), // and cloned fucking everything. sorry
+            Command::Reply(reply) => {
+                match reply {
+                    Ok(reply) => reply.clone().raw_command(),
+                    Err(reply) => reply.clone().raw_command(),
+                }
+            }
+            Command::Part(channels) => Command::Raw("PART".to_string(), channels.clone()),
             Command::Raw(_, _) => self.clone(), // svelte says u dont know how to write rust. also i cloned self
         }
     }
@@ -115,7 +144,7 @@ impl fmt::Display for Command {
         
                 write!(f, "{} {}", command, params.join(" "))
             },
-            _ => Err(Error),
+            _ => Err(fmt::Error),
         }
     }
 }
@@ -137,6 +166,15 @@ fn command_fmt_no_params() {
         command: Command::Quit,
     };
     assert_eq!(format!("{}", result), "QUIT");
+}
+
+#[test]
+fn numeric_fmt() {
+    let result = Message {
+        prefix: None,
+        command: Command::Reply(Err(ErrorReply::Raw(401, vec!["tester".to_string(), ":No such nick".to_string()])))
+    };
+    assert_eq!(format!("{}", result), "401 tester :No such nick")
 }
 
 #[test]
@@ -163,5 +201,14 @@ fn command_parse_no_params() {
     assert_eq!(result, Message {
         prefix: None,
         command: Command::Quit,
+    })
+}
+
+#[test]
+fn numeric_parse() {
+    let result = Message::from_str("401 tester :No such nick").unwrap();
+    assert_eq!(result, Message {
+        prefix: None,
+        command: Command::Reply(Err(ErrorReply::Raw(401, vec!["tester".to_string(), ":No such nick".to_string()])))
     })
 }
