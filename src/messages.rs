@@ -1,7 +1,7 @@
 mod replys;
 
 
-use std::{fmt::{self, Error}, str::FromStr};
+use std::{fmt, str::FromStr};
 
 use replys::{Reply, ErrorReply};
 
@@ -108,8 +108,8 @@ impl Command {
             Command::Join(channel) => Command::Raw("JOIN".to_string(), vec![channel.clone()]), // and cloned fucking everything. sorry
             Command::Reply(reply) => {
                 match reply {
-                    Ok(reply) => ,
-                    Err(reply) => ,
+                    Ok(reply) => reply.clone().raw_command(),
+                    Err(reply) => reply.clone().raw_command(),
                 }
             }
             Command::Raw(_, _) => self.clone(), // svelte says u dont know how to write rust. also i cloned self
@@ -127,7 +127,7 @@ impl fmt::Display for Command {
         
                 write!(f, "{} {}", command, params.join(" "))
             },
-            _ => Err(Error),
+            _ => Err(fmt::Error),
         }
     }
 }
@@ -149,6 +149,15 @@ fn command_fmt_no_params() {
         command: Command::Quit,
     };
     assert_eq!(format!("{}", result), "QUIT");
+}
+
+#[test]
+fn numeric_fmt() {
+    let result = Message {
+        prefix: None,
+        command: Command::Quit,
+    };
+    assert_eq!(format!("{}", result), "401 tester :No such nick")
 }
 
 #[test]
@@ -175,5 +184,14 @@ fn command_parse_no_params() {
     assert_eq!(result, Message {
         prefix: None,
         command: Command::Quit,
+    })
+}
+
+#[test]
+fn numeric_parse() {
+    let result = Message::from_str("401 tester :No such nick").unwrap();
+    assert_eq!(result, Message {
+        prefix: None,
+        command: Command::Reply(Err(ErrorReply::Raw(401, vec!["tester".to_string(), ":No such nick".to_string()])))
     })
 }
