@@ -5,6 +5,8 @@ use std::{fmt, str::FromStr};
 
 use replys::{Reply, ErrorReply};
 
+use crate::users::UserFlags;
+
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Message {
@@ -107,6 +109,7 @@ pub enum Command {
     Join(String),
     Reply(Result<Reply, ErrorReply>),
     Part(Vec<String>),
+    Mode(String, bool, UserFlags),
     Raw(String, Vec<String>),
 }
 
@@ -129,6 +132,9 @@ impl Command {
                 }
             }
             Command::Part(channels) => Command::Raw("PART".to_string(), channels.clone()),
+            Command::Mode(user, set, flags) => Command::Raw("MODE".to_string(), vec![
+                match set { false => "-".to_string(), true => "+".to_string() } + 
+            ]),
             Command::Raw(_, _) => self.clone(), // svelte says u dont know how to write rust. also i cloned self
         }
     }
