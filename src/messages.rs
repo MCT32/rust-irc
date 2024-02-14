@@ -169,7 +169,7 @@ fn command_fmt_no_params() {
 fn numeric_fmt() {
     let result = Message {
         prefix: None,
-        command: Command::Quit,
+        command: Command::Reply(Err(ErrorReply::Raw(401, vec!["tester".to_string(), ":No such nick".to_string()])))
     };
     assert_eq!(format!("{}", result), "401 tester :No such nick")
 }
