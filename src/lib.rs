@@ -11,6 +11,7 @@ use tokio::{io::{self, Interest}, net::TcpStream, sync::Mutex};
 use std::{str::FromStr, sync::Arc};
 
 
+#[derive(Debug, Clone)]
 pub struct IrcConnection {
     stream: Arc<Mutex<TcpStream>>,
     config: IrcConfig,

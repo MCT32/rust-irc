@@ -6,7 +6,7 @@ use crate::{error::{IrcConfigBuilderError, IrcConnectError}, messages::Message, 
 type RawMessageHandler = fn(&str);
 type MessageHandler = fn(Message);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct IrcConfig {
     host: SocketAddr,
 

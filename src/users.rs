@@ -1,6 +1,6 @@
 use crate::messages::{Command, Message};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct User {
     pub nickname: String,
     pub username: String,
@@ -27,7 +27,7 @@ impl User {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct UserFlags {
     pub invisible: bool,
     pub server_notices: bool,
