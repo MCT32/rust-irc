@@ -69,6 +69,7 @@ impl FromStr for Message {
                     "NOTICE" => Command::Notice(params[0].clone(), params[1].clone()),
                     "PRIVMSG" => Command::PrivMsg(params[0].clone(), params[1].clone()),
                     "JOIN" => Command::Join(params[0].clone()),
+                    "PART" => Command::Part(params),
                     _ => Command::Raw(command, params)
                 }
             })
@@ -85,6 +86,7 @@ pub enum Command {
     Notice(String, String),
     PrivMsg(String, String),
     Join(String),
+    Part(Vec<String>),
     Raw(String, Vec<String>),
 }
 
@@ -100,6 +102,7 @@ impl Command {
             Command::Notice(nickname, notice) => Command::Raw("NOTICE".to_string(), vec![nickname.clone(), notice.clone()]),
             Command::PrivMsg(receiver, message) => Command::Raw("PRIVMSG".to_string(), vec![receiver.clone(), message.clone()]),
             Command::Join(channel) => Command::Raw("JOIN".to_string(), vec![channel.clone()]), // and cloned fucking everything. sorry
+            Command::Part(channels) => Command::Raw("PART".to_string(), channels.clone()),
             Command::Raw(_, _) => self.clone(), // svelte says u dont know how to write rust. also i cloned self
         }
     }
