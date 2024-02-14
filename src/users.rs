@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::messages::{Command, Message};
 
 #[derive(Debug, Clone)]
@@ -33,4 +35,25 @@ pub struct UserFlags {
     pub server_notices: bool,
     pub wallops: bool,
     pub operator: bool,
+}
+
+impl fmt::Display for UserFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut string = String::new();
+
+        if self.invisible {
+            string.push_str("i");
+        }
+        if self.server_notices {
+            string.push_str("s");
+        }
+        if self.wallops {
+            string.push_str("w")
+        }
+        if self.operator {
+            string.push_str("o")
+        }
+
+        write!(f, "{}", string)
+    }
 }
