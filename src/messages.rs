@@ -64,6 +64,20 @@ impl FromStr for Message {
 
             let command = parts.first().unwrap().to_string();
 
+            if let Ok(code) = command.parse::<u16>() {
+                if code >= 400 && code < 700 {
+                    return Ok(Message {
+                        prefix: None,
+                        command: Command::Reply(Err(ErrorReply::Raw(code, params)))
+                    });
+                } else {
+                    return Ok(Message {
+                        prefix: None,
+                        command: Command::Reply(Ok(Reply::Raw(code, params)))
+                    });
+                }
+            }
+
             Ok(Message {
                 prefix: None,
                 command: match command.as_str() {
