@@ -27,7 +27,7 @@ impl User {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct UserFlags {
     pub invisible: bool,
     pub server_notices: bool,
