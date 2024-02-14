@@ -1,4 +1,9 @@
+mod replys;
+
+
 use std::{fmt::{self, Error}, str::FromStr};
+
+use replys::{Reply, ErrorReply};
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -85,6 +90,7 @@ pub enum Command {
     Notice(String, String),
     PrivMsg(String, String),
     Join(String),
+    Reply(Result<Reply, ErrorReply>),
     Raw(String, Vec<String>),
 }
 
@@ -100,6 +106,12 @@ impl Command {
             Command::Notice(nickname, notice) => Command::Raw("NOTICE".to_string(), vec![nickname.clone(), notice.clone()]),
             Command::PrivMsg(receiver, message) => Command::Raw("PRIVMSG".to_string(), vec![receiver.clone(), message.clone()]),
             Command::Join(channel) => Command::Raw("JOIN".to_string(), vec![channel.clone()]), // and cloned fucking everything. sorry
+            Command::Reply(reply) => {
+                match reply {
+                    Ok(reply) => ,
+                    Err(reply) => ,
+                }
+            }
             Command::Raw(_, _) => self.clone(), // svelte says u dont know how to write rust. also i cloned self
         }
     }
