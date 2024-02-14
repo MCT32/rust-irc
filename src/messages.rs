@@ -132,8 +132,8 @@ impl Command {
                 }
             }
             Command::Part(channels) => Command::Raw("PART".to_string(), channels.clone()),
-            Command::Mode(user, set, flags) => Command::Raw("MODE".to_string(), vec![
-                match set { false => "-".to_string(), true => "+".to_string() } + 
+            Command::Mode(user, set, flags) => Command::Raw("MODE".to_string(), vec![user.to_string(),
+                match set { false => "-".to_string(), true => "+".to_string() } + &format!("{}", flags).to_string()
             ]),
             Command::Raw(_, _) => self.clone(), // svelte says u dont know how to write rust. also i cloned self
         }
@@ -184,6 +184,15 @@ fn numeric_fmt() {
 }
 
 #[test]
+fn mode_fmt() {
+    let result = Message {
+        prefix: None,
+        command: Command::Mode("tester".to_string(), true, UserFlags { invisible: true, server_notices: false, wallops: true, operator: false }),
+    };
+    assert_eq!(format!("{}", result), "MODE tester +iw");
+}
+
+#[test]
 fn command_parse() {
     let result = Message::from_str("PRIVMSG #test :This is a test").unwrap();
     assert_eq!(result, Message {
@@ -216,5 +225,14 @@ fn numeric_parse() {
     assert_eq!(result, Message {
         prefix: None,
         command: Command::Reply(Err(ErrorReply::Raw(401, vec!["tester".to_string(), ":No such nick".to_string()])))
+    })
+}
+
+#[test]
+fn mode_parse() {
+    let result = Message::from_str("MODE tester +iw").unwrap();
+    assert_eq!(result, Message {
+        prefix: None,
+        command: Command::Mode("tester".to_string(), true, UserFlags { invisible: true, server_notices: false, wallops: true, operator: false }),
     })
 }
