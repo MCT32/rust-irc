@@ -7,8 +7,8 @@ pub mod users;
 use config::IrcConfig;
 use error::{IrcInitError, IrcSendError};
 use messages::{Command, Message};
-use tokio::{io::{self, Interest}, net::TcpStream, sync::Mutex};
-use std::{str::FromStr, sync::Arc};
+use tokio::{io::{self, Interest}, net::TcpStream, sync::Mutex, time};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 
 #[derive(Debug, Clone)]
@@ -90,6 +90,7 @@ impl IrcConnection {
                     eprintln!("Error reading socket: {}", e);
                     break;
                 }
+                
             };
 
             let buf_str = &buf[0..bytes_read];
@@ -102,6 +103,8 @@ impl IrcConnection {
                 Some(func) => func(messages::Message::from_str(std::str::from_utf8(&buf_str).unwrap()).unwrap()),
                 _ => ()
             }
+            time::sleep(Duration::from_millis(500));
         }
+
     }
 }
