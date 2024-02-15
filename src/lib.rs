@@ -103,7 +103,7 @@ impl IrcConnection {
                 Some(func) => func(messages::Message::from_str(std::str::from_utf8(&buf_str).unwrap()).unwrap()),
                 _ => ()
             }
-            time::sleep(Duration::from_millis(500));
+            time::sleep(Duration::from_millis(500)).await;
         }
 
     }
