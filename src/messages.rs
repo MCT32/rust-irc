@@ -91,6 +91,27 @@ impl FromStr for Message {
                     "PRIVMSG" => Command::PrivMsg(params[0].clone(), params[1].clone()),
                     "JOIN" => Command::Join(params[0].clone()),
                     "PART" => Command::Part(params),
+                    "MODE" => {
+                        let mut flags = UserFlags::default();
+
+                        let set = match params[1].chars().next().unwrap() {
+                            '-' => false,
+                            '+' => true,
+                            _ => return Err(ParseCommandError),
+                        };
+
+                        for i in params[1][1..].chars() {
+                            match i {
+                                'i' => { flags.invisible = true },
+                                'w' => { flags.wallops = true },
+                                's' => { flags.server_notices = true },
+                                'o' => { flags.operator = true },
+                                _ => return Err(ParseCommandError),
+                            }
+                        }
+
+                        Command::Mode(params[0].clone(), set, flags)
+                    }
                     _ => Command::Raw(command, params)
                 }
             })
