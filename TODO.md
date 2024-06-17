@@ -1,3 +1,0 @@
-- [x] Support numeric responses
-- [x] Parse mode command and use user flags
-- [ ] Manage channels and private messages
