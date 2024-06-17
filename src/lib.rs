@@ -1,6 +1,6 @@
-mod config;
-mod error;
-mod irc_enums;
+pub mod config;
+pub mod error;
+pub mod irc_enums;
 
 use config::IrcConfig;
 use irc_enums::{IrcCommand, IrcEvent};
