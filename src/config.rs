@@ -11,13 +11,13 @@ pub struct IrcConfigBuilder {
 }
 
 impl IrcConfigBuilder {
-    fn new() -> Self {
+    pub fn new() -> Self {
         IrcConfigBuilder {
             server_address: None,
         }
     }
 
-    fn build(self) -> Result<IrcConfig, IrcConfigBuilderError> {
+    pub fn build(self) -> Result<IrcConfig, IrcConfigBuilderError> {
         let server_address = match self.server_address {
             Some(server_address) => server_address,
             None => return Err(IrcConfigBuilderError::ServerAddressMissing),
@@ -26,5 +26,10 @@ impl IrcConfigBuilder {
         Ok(IrcConfig {
             server_address,
         })
+    }
+
+    pub fn server_address<T: ToSocketAddrs>(&mut self, server_address: T) -> Result<(), std::io::Error> {
+        self.server_address = Some(server_address.to_socket_addrs()?.next().unwrap());
+        Ok(())
     }
 }
