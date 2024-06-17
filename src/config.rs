@@ -2,6 +2,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 
 use crate::error::IrcConfigBuilderError;
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct IrcConfig<'a> {
     pub server_address: SocketAddr,
     pub username: &'a str,
@@ -9,6 +10,7 @@ pub struct IrcConfig<'a> {
     pub password: Option<&'a str>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct IrcConfigBuilder<'a> {
     server_address: Option<SocketAddr>,
     username: Option<&'a str>,
@@ -52,7 +54,10 @@ impl<'a> IrcConfigBuilder<'a> {
         })
     }
 
-    pub fn server_address<T: ToSocketAddrs>(&mut self, server_address: T) -> Result<(), std::io::Error> {
+    pub fn server_address<T: ToSocketAddrs>(
+        &mut self,
+        server_address: T,
+    ) -> Result<(), std::io::Error> {
         self.server_address = Some(server_address.to_socket_addrs()?.next().unwrap());
         Ok(())
     }
