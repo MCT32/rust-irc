@@ -1,15 +1,18 @@
-pub mod messages;
-pub mod error;
 pub mod config;
+pub mod error;
+pub mod messages;
 pub mod users;
-
 
 use config::IrcConfig;
 use error::{IrcInitError, IrcSendError};
 use messages::{Command, Message};
-use tokio::{io::{self, Interest}, net::TcpStream, sync::Mutex, time};
 use std::{str::FromStr, sync::Arc, time::Duration};
-
+use tokio::{
+    io::{self, Interest},
+    net::TcpStream,
+    sync::Mutex,
+    time,
+};
 
 #[derive(Debug, Clone)]
 pub struct IrcConnection {
@@ -23,17 +26,17 @@ impl IrcConnection {
         msg.push_str("\n");
         match self.stream.lock().await.try_write(msg.as_bytes()) {
             Ok(bytes_sent) => Ok(bytes_sent),
-            Err(err) => Err(IrcSendError::TcpSendError(err))
+            Err(err) => Err(IrcSendError::TcpSendError(err)),
         }
     }
 
     pub async fn send(&mut self, msg: Message) -> Result<usize, IrcSendError> {
         let mut msg = msg.to_string();
         msg.push_str("\n");
-        print!("{}", msg); 
+        print!("{}", msg);
         match self.stream.lock().await.try_write(msg.as_bytes()) {
             Ok(bytes_sent) => Ok(bytes_sent),
-            Err(err) => Err(IrcSendError::TcpSendError(err))
+            Err(err) => Err(IrcSendError::TcpSendError(err)),
         }
     }
 
@@ -42,15 +45,24 @@ impl IrcConnection {
             tokio::spawn(Self::receive_loop(self.config.clone(), self.stream.clone()));
         }
 
-        if let Err(err) = self.stream.lock().await.ready(Interest::READABLE | Interest::WRITABLE).await {
+        if let Err(err) = self
+            .stream
+            .lock()
+            .await
+            .ready(Interest::READABLE | Interest::WRITABLE)
+            .await
+        {
             return Err(IrcInitError::TcpConnectionError(err));
         }
 
         if let Some(password) = &self.config.password {
-            if let Err(err) = self.send(Message {
-                prefix: None,
-                command: Command::Pass(password.to_string()),
-            }).await {
+            if let Err(err) = self
+                .send(Message {
+                    prefix: None,
+                    command: Command::Pass(password.to_string()),
+                })
+                .await
+            {
                 return Err(IrcInitError::IrcSendError(err));
             }
         }
@@ -70,7 +82,8 @@ impl IrcConnection {
         self.send(Message {
             prefix: None,
             command: Command::Quit,
-        }).await
+        })
+        .await
     }
 
     async fn receive_loop(config: IrcConfig, stream: Arc<Mutex<TcpStream>>) {
@@ -90,21 +103,21 @@ impl IrcConnection {
                     eprintln!("Error reading socket: {}", e);
                     break;
                 }
-                
             };
 
             let buf_str = &buf[0..bytes_read];
             match config.raw_receive_handler {
                 Some(func) => func(std::str::from_utf8(&buf_str).unwrap()),
-                _ => ()
+                _ => (),
             }
 
             match config.receive_handler {
-                Some(func) => func(messages::Message::from_str(std::str::from_utf8(&buf_str).unwrap()).unwrap()),
-                _ => ()
+                Some(func) => func(
+                    messages::Message::from_str(std::str::from_utf8(&buf_str).unwrap()).unwrap(),
+                ),
+                _ => (),
             }
             time::sleep(Duration::from_millis(500)).await;
         }
-
     }
 }
