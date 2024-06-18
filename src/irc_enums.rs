@@ -1,7 +1,7 @@
-pub enum IrcEvent<'a> {
-    ReceiveMessage(&'a str),
+pub enum IrcEvent {
+    ReceiveMessage(String),
 }
 
-pub enum IrcCommand<'a> {
-    SendMessage(&'a str),
+pub enum IrcCommand {
+    SendMessage(String),
 }
