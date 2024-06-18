@@ -1,5 +1,7 @@
 pub mod config;
 pub mod irc_enums;
+pub mod message;
+pub mod error;
 
 use config::IrcConfig;
 use irc_enums::{IrcCommand, IrcEvent};
@@ -9,4 +11,6 @@ pub async fn backend(config: IrcConfig, tx: Sender<IrcEvent>, rx: Receiver<IrcCo
     let stream = tokio::net::TcpStream::connect(config.server_address)
         .await
         .unwrap();
+
+
 }
