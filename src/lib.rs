@@ -1,5 +1,4 @@
 pub mod config;
-pub mod error;
 pub mod irc_enums;
 
 use config::IrcConfig;
