@@ -124,10 +124,7 @@ impl From<GenericIrcMessage> for String {
 
             for (index, tag) in value.tags.into_iter().enumerate() {
                 if let Some(value) = tag.1 {
-                    // TODO: minimize push_str() calls
-                    buffer.push_str(tag.0.as_str());
-                    buffer.push_str("=");
-                    buffer.push_str(&value);
+                    buffer.push_str(format!("{}={}", tag.0.as_str(), &value).as_str());
                 } else {
                     buffer.push_str(tag.0.as_str());
                 }
