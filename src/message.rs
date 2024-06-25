@@ -4,7 +4,7 @@ use crate::error::Error;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct GenericIrcMessage {
-    pub tags: Vec<String>,
+    pub tags: Vec<(String, Option<String>)>,
     pub prefix: Option<String>,
     // TODO: change type for error codes, prob use an enum
     pub command: String,
@@ -15,18 +15,25 @@ impl TryFrom<&str> for GenericIrcMessage {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<GenericIrcMessage, Error> {
-        // TODO: remake regex to allow all possible params, with symbols and such
         let re = Regex::new("^(?:@([^\\n\\r\\x00 ]+) )?(?::([^\\n\\r\\x00 ]+) )?([A-Z]+|[0-9]{3})(?: ([^\\n\\r\\x00]+))?$").unwrap();
 
         let Some(caps) = re.captures(value) else {
             return Err(Error::NoMatch(value.to_string()));
         };
 
-        // TODO: store key and value of tags seperately
         let tags = match caps.get(1).map(|m| m.as_str().to_string()) {
             None => vec![],
             Some(tags) => {
-                tags.split(';').into_iter().map(|m| m.to_string()).collect::<Vec<_>>()
+                tags.split(';').into_iter().map(|m| {
+                    match m.split_once("=") {
+                        Some((key, value)) => {
+                            (key.to_string(), Some(value.to_string()))
+                        },
+                        None => {
+                            (m.to_string(), None)
+                        }
+                    }
+                }).collect::<Vec<_>>()
             }
         };
 
@@ -72,7 +79,14 @@ impl From<GenericIrcMessage> for String {
             let length = value.tags.len();
 
             for (index, tag) in value.tags.into_iter().enumerate() {
-                buffer.push_str(tag.as_str());
+                if let Some(value) = tag.1 {
+                    // TODO: minimize push_str() calls
+                    buffer.push_str(tag.0.as_str());
+                    buffer.push_str("=");
+                    buffer.push_str(&value);
+                } else {
+                    buffer.push_str(tag.0.as_str());
+                }
                 
                 if !(index == length - 1) {
                     buffer.push_str(";");
@@ -126,7 +140,7 @@ mod tests {
         }));
 
         assert_eq!("@foo;bar;test_tag=plumbus :127.0.0.1 MSG #rust :rustaceans rise!".try_into(), Ok(GenericIrcMessage {
-            tags: vec!["foo", "bar", "test_tag=plumbus"].into_iter().map(|m| m.to_string()).collect(),
+            tags: vec![("foo".to_string(), None), ("bar".to_string(), None), ("test_tag".to_string(), Some("plumbus".to_string()))],
             prefix: Some("127.0.0.1".to_string()),
             command: "MSG".to_string(),
             params: vec!["#rust", "rustaceans rise!"].into_iter().map(|m| m.to_string()).collect(),
@@ -159,7 +173,7 @@ mod tests {
 
         // TODO: add support for trailing parameters
         assert_eq!("@foo;bar;test_tag=plumbus :127.0.0.1 MSG #rust rustaceansrise!".to_string(), String::from(GenericIrcMessage {
-            tags: vec!["foo", "bar", "test_tag=plumbus"].into_iter().map(|m| m.to_string()).collect(),
+            tags: vec![("foo".to_string(), None), ("bar".to_string(), None), ("test_tag".to_string(), Some("plumbus".to_string()))],
             prefix: Some("127.0.0.1".to_string()),
             command: "MSG".to_string(),
             params: vec!["#rust", "rustaceansrise!"].into_iter().map(|m| m.to_string()).collect(),
