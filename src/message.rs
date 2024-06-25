@@ -3,6 +3,46 @@ use regex::Regex;
 use crate::error::Error;
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum IrcMessage {
+    PASS(String),
+    NICK(String),
+    USER{
+        username: String,
+        realname: String,
+    },
+    Generic(GenericIrcMessage),
+}
+
+impl TryFrom<GenericIrcMessage> for IrcMessage {
+    type Error = Error;
+
+    fn try_from(value: GenericIrcMessage) -> Result<Self, Error> {
+        match &value.command {
+            GenericIrcCommand::Text(command) => {
+                match command.as_str() {
+                    "PASS" => Ok(Self::PASS(value.params.get(0).unwrap().clone())),
+                    "NICK" => Ok(Self::NICK(value.params.get(0).unwrap().clone())),
+                    "USER" => Ok(Self::USER{ username: value.params.get(0).unwrap().clone(),
+                        realname: value.params.get(1).unwrap().clone() }),
+                    _ => Ok(Self::Generic(value)),
+                }
+            },
+            GenericIrcCommand::Number(_) => {
+                Ok(Self::Generic(value))
+            },
+        }
+    }
+}
+
+impl TryFrom<&str> for IrcMessage {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        GenericIrcMessage::try_from(value)?.try_into()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum GenericIrcCommand {
     Text(String),
     Number(u16),
@@ -231,5 +271,29 @@ mod tests {
             command: GenericIrcCommand::Text("MSG".to_string()),
             params: vec!["#rust", "rustaceans rise!"].into_iter().map(|m| m.to_string()).collect(),
         }).unwrap());
+    }
+
+    #[test]
+    fn message_variants() {
+        assert_eq!(IrcMessage::PASS("password123".to_string()), GenericIrcMessage {
+            tags: vec![],
+            prefix: None,
+            command: GenericIrcCommand::Text("PASS".to_string()),
+            params: vec!["password123".to_string()],
+        }.try_into().unwrap());
+
+        assert_eq!(IrcMessage::NICK("Jimmy".to_string()), GenericIrcMessage {
+            tags: vec![],
+            prefix: None,
+            command: GenericIrcCommand::Text("NICK".to_string()),
+            params: vec!["Jimmy".to_string()],
+        }.try_into().unwrap());
+
+        assert_eq!(IrcMessage::USER{ username: "Jim1982".to_string(), realname: "James Bond".to_string() }, GenericIrcMessage {
+            tags: vec![],
+            prefix: None,
+            command: GenericIrcCommand::Text("USER".to_string()),
+            params: vec!["Jim1982".to_string(), "James Bond".to_string()],
+        }.try_into().unwrap());
     }
 }
