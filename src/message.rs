@@ -113,8 +113,10 @@ impl TryFrom<&str> for GenericIrcMessage {
     }
 }
 
-impl From<GenericIrcMessage> for String {
-    fn from(value: GenericIrcMessage) -> Self {
+impl TryFrom<GenericIrcMessage> for String {
+    type Error = Error;
+
+    fn try_from(value: GenericIrcMessage) -> Result<Self, Error> {
         let mut buffer = String::new();
 
         if !value.tags.is_empty() {
@@ -143,13 +145,25 @@ impl From<GenericIrcMessage> for String {
 
         buffer.push_str(String::from(value.command).as_str());
 
-        // TODO: need to add support for trailing params
-        for param in value.params {
-            buffer.push_str(" ");
-            buffer.push_str(param.as_str());
-        };
+        if !value.params.is_empty() {
+            let last = value.params.last().unwrap();
 
-        buffer
+            let params = value.params.iter().take(value.params.len() - 1);
+
+            if !params.clone().all(|p| !p.contains(' ')) { return Err(Error::Invalid) };
+
+            for param in params {
+                buffer.push_str(format!(" {}", param.as_str()).as_str());
+            };
+
+            if last.contains(' ') {
+                buffer.push_str(format!(" :{}", last).as_str());
+            } else {
+                buffer.push_str(format!(" {}", last).as_str());
+            }
+        }
+
+        Ok(buffer)
     }
 }
 
@@ -190,34 +204,32 @@ mod tests {
 
     #[test]
     fn to_string() {
-        assert_eq!("LEAVE".to_string(), String::from(GenericIrcMessage {
+        assert_eq!("LEAVE".to_string(), String::try_from(GenericIrcMessage {
             tags: vec![],
             prefix: None,
             command: GenericIrcCommand::Text("LEAVE".to_string()),
             params: vec![],
-        }));
+        }).unwrap());
 
-        // TODO: add support for trailing parameters
-        assert_eq!(":server MSG #meme 11/10cock".to_string(), String::from(GenericIrcMessage {
+        assert_eq!(":server MSG #meme :11/10 cock".to_string(), String::try_from(GenericIrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
             command: GenericIrcCommand::Text("MSG".to_string()),
-            params: vec!["#meme", "11/10cock"].into_iter().map(|m| m.to_string()).collect(),
-        }));
+            params: vec!["#meme", "11/10 cock"].into_iter().map(|m| m.to_string()).collect(),
+        }).unwrap());
 
-        assert_eq!(":server 404 shit".to_string(), String::from(GenericIrcMessage {
+        assert_eq!(":server 404 shit".to_string(), String::try_from(GenericIrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
             command: GenericIrcCommand::Number(404),
             params: vec!["shit".to_string()],
-        }));
+        }).unwrap());
 
-        // TODO: add support for trailing parameters
-        assert_eq!("@foo;bar;test_tag=plumbus :127.0.0.1 MSG #rust rustaceansrise!".to_string(), String::from(GenericIrcMessage {
+        assert_eq!("@foo;bar;test_tag=plumbus :127.0.0.1 MSG #rust :rustaceans rise!".to_string(), String::try_from(GenericIrcMessage {
             tags: vec![("foo".to_string(), None), ("bar".to_string(), None), ("test_tag".to_string(), Some("plumbus".to_string()))],
             prefix: Some("127.0.0.1".to_string()),
             command: GenericIrcCommand::Text("MSG".to_string()),
-            params: vec!["#rust", "rustaceansrise!"].into_iter().map(|m| m.to_string()).collect(),
-        }));
+            params: vec!["#rust", "rustaceans rise!"].into_iter().map(|m| m.to_string()).collect(),
+        }).unwrap());
     }
 }
