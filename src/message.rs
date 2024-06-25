@@ -3,11 +3,16 @@ use regex::Regex;
 use crate::error::Error;
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum GenericIrcCommand {
+    Text(String),
+    Number(u16),
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct GenericIrcMessage {
     pub tags: Vec<(String, Option<String>)>,
     pub prefix: Option<String>,
-    // TODO: change type for error codes, prob use an enum
-    pub command: String,
+    pub command: GenericIrcCommand,
     pub params: Vec<String>,
 }
 
