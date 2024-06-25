@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum Error {
     NoMatch(String),
     NoCommand(String),
+    Invalid,
 }
 
 impl Display for Error {
@@ -15,6 +16,7 @@ impl Display for Error {
             Error::NoCommand(msg) => {
                 write!(f, "Message \"{}\" is missing command!", msg)
             },
+            Error::Invalid => write!(f, "Invalid string!")
         }
     }
 }

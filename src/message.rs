@@ -8,6 +8,41 @@ pub enum GenericIrcCommand {
     Number(u16),
 }
 
+impl TryFrom<&str> for GenericIrcCommand {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.chars().next().unwrap() {
+            '0'..='9' => {
+                if value.len() == 3 && value.chars().all(|c| c.is_numeric()) {
+                    Ok(Self::Number(value.parse::<u16>().unwrap()))
+                } else {
+                    Err(Error::Invalid)
+                }
+            },
+            'A'..='Z' => {
+                if value.chars().all(|c| c.is_ascii_uppercase()) {
+                    Ok(Self::Text(value.to_string()))
+                } else {
+                    Err(Error::Invalid)
+                }
+            },
+            _ => {
+                Err(Error::Invalid)
+            }
+        }
+    }
+}
+
+impl From<GenericIrcCommand> for String {
+    fn from(value: GenericIrcCommand) -> Self {
+        match value {
+            GenericIrcCommand::Number(number) => number.to_string(),
+            GenericIrcCommand::Text(text) => text,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct GenericIrcMessage {
     pub tags: Vec<(String, Option<String>)>,
@@ -44,8 +79,12 @@ impl TryFrom<&str> for GenericIrcMessage {
 
         let prefix = caps.get(2).map(|m| m.as_str().to_string());
 
-        let Some(command) = caps.get(3).map(|m| m.as_str().to_string()) else {
+        let Some(command) = caps.get(3).map(|m| m.as_str()) else {
             return Err(Error::NoCommand(value.to_string()));
+        };
+
+        let Ok(command) = GenericIrcCommand::try_from(command) else {
+            return Err(Error::Invalid);
         };
 
         let params = match caps.get(4).map(|m| m.as_str()) {
@@ -105,7 +144,7 @@ impl From<GenericIrcMessage> for String {
             buffer.push_str(format!(":{} ", prefix).as_str());
         };
 
-        buffer.push_str(value.command.as_str());
+        buffer.push_str(String::from(value.command).as_str());
 
         // TODO: need to add support for trailing params
         for param in value.params {
@@ -126,28 +165,28 @@ mod tests {
         assert_eq!("LEAVE".try_into(), Ok(GenericIrcMessage {
             tags: vec![],
             prefix: None,
-            command: "LEAVE".to_string(),
+            command: GenericIrcCommand::Text("LEAVE".to_string()),
             params: vec![],
         }));
 
         assert_eq!(":server MSG #meme :11/10 cock".try_into(), Ok(GenericIrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
-            command: "MSG".to_string(),
+            command: GenericIrcCommand::Text("MSG".to_string()),
             params: vec!["#meme", "11/10 cock"].into_iter().map(|m| m.to_string()).collect(),
         }));
 
         assert_eq!(":server 404 shit".try_into(), Ok(GenericIrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
-            command: "404".to_string(),
+            command: GenericIrcCommand::Number(404),
             params: vec!["shit".to_string()],
         }));
 
         assert_eq!("@foo;bar;test_tag=plumbus :127.0.0.1 MSG #rust :rustaceans rise!".try_into(), Ok(GenericIrcMessage {
             tags: vec![("foo".to_string(), None), ("bar".to_string(), None), ("test_tag".to_string(), Some("plumbus".to_string()))],
             prefix: Some("127.0.0.1".to_string()),
-            command: "MSG".to_string(),
+            command: GenericIrcCommand::Text("MSG".to_string()),
             params: vec!["#rust", "rustaceans rise!"].into_iter().map(|m| m.to_string()).collect(),
         }));
     }
@@ -157,7 +196,7 @@ mod tests {
         assert_eq!("LEAVE".to_string(), String::from(GenericIrcMessage {
             tags: vec![],
             prefix: None,
-            command: "LEAVE".to_string(),
+            command: GenericIrcCommand::Text("LEAVE".to_string()),
             params: vec![],
         }));
 
@@ -165,14 +204,14 @@ mod tests {
         assert_eq!(":server MSG #meme 11/10cock".to_string(), String::from(GenericIrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
-            command: "MSG".to_string(),
+            command: GenericIrcCommand::Text("MSG".to_string()),
             params: vec!["#meme", "11/10cock"].into_iter().map(|m| m.to_string()).collect(),
         }));
 
         assert_eq!(":server 404 shit".to_string(), String::from(GenericIrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
-            command: "404".to_string(),
+            command: GenericIrcCommand::Number(404),
             params: vec!["shit".to_string()],
         }));
 
@@ -180,7 +219,7 @@ mod tests {
         assert_eq!("@foo;bar;test_tag=plumbus :127.0.0.1 MSG #rust rustaceansrise!".to_string(), String::from(GenericIrcMessage {
             tags: vec![("foo".to_string(), None), ("bar".to_string(), None), ("test_tag".to_string(), Some("plumbus".to_string()))],
             prefix: Some("127.0.0.1".to_string()),
-            command: "MSG".to_string(),
+            command: GenericIrcCommand::Text("MSG".to_string()),
             params: vec!["#rust", "rustaceansrise!"].into_iter().map(|m| m.to_string()).collect(),
         }));
     }
