@@ -15,7 +15,7 @@ impl TryFrom<&str> for GenericIrcMessage {
 
     fn try_from(value: &str) -> Result<GenericIrcMessage, Error> {
         // TODO: remake regex to allow all possible params, with symbols and such
-        let re = Regex::new("^(?::([A-Za-z0-9]+) )?([A-Z]+|[0-9]{3})(?: ([A-Za-z0-9:#\\/! ]+))?$").unwrap();
+        let re = Regex::new("^(?::([A-Za-z0-9]+) )?([A-Z]+|[0-9]{3})(?: ([^\\n\\r\\x00]+))?$").unwrap();
 
         let Some(caps) = re.captures(value) else {
             return Err(Error::NoMatch(value.to_string()));
