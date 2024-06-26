@@ -130,7 +130,7 @@ impl TryFrom<&str> for GenericIrcMessage {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<GenericIrcMessage, Error> {
-        let re = Regex::new("^(?:@([^\\n\\r\\x00 ]+) )?(?::([^\\n\\r\\x00 ]+) )?([A-Z]+|[0-9]{3})(?: ([^\\n\\r\\x00]+))?$").unwrap();
+        let re = Regex::new("^(?:@([^\\n\\r\\x00 ]+) )?(?::([^\\r\\n\\x00 ]+) )?([A-Z]+|[0-9]{3})(?: ([^\\n\\r\\x00]+))?\\r\\n$").unwrap();
 
         let Some(caps) = re.captures(value) else {
             return Err(Error::NoMatch(value.to_string()));
@@ -237,6 +237,8 @@ impl TryFrom<GenericIrcMessage> for String {
                 buffer.push_str(format!(" {}", last).as_str());
             }
         }
+
+        buffer.push_str("\r\n");
 
         Ok(buffer)
     }
