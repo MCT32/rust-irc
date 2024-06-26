@@ -42,6 +42,41 @@ impl TryFrom<&str> for IrcMessage {
     }
 }
 
+impl From<IrcMessage> for GenericIrcMessage {
+    fn from(value: IrcMessage) -> Self {
+        match value {
+            IrcMessage::PASS(password) => GenericIrcMessage {
+                // TODO: allow IrcMessage to carry tags and prefixes
+                tags: vec![],
+                prefix: None,
+                command: GenericIrcCommand::Text("PASS".to_string()),
+                params: vec![password],
+            },
+            IrcMessage::NICK(nickname) => GenericIrcMessage {
+                tags: vec![],
+                prefix: None,
+                command: GenericIrcCommand::Text("NICK".to_string()),
+                params: vec![nickname],
+            },
+            IrcMessage::USER{ username, realname } => GenericIrcMessage {
+                tags: vec![],
+                prefix: None,
+                command: GenericIrcCommand::Text("USER".to_string()),
+                params: vec![username, "0".to_string(), "*".to_string(), realname],
+            },
+            IrcMessage::Generic(generic) => generic,
+        }
+    }
+}
+
+impl TryFrom<IrcMessage> for String {
+    type Error = Error;
+
+    fn try_from(value: IrcMessage) -> Result<Self, Error> {
+        GenericIrcMessage::from(value).try_into()
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum GenericIrcCommand {
     Text(String),
@@ -295,5 +330,11 @@ mod tests {
             command: GenericIrcCommand::Text("USER".to_string()),
             params: vec!["Jim1982".to_string(), "James Bond".to_string()],
         }.try_into().unwrap());
+
+        assert_eq!(String::try_from(IrcMessage::PASS("password123".to_string())).unwrap(), "PASS password123".to_string());
+
+        assert_eq!(String::try_from(IrcMessage::NICK("Jimmy".to_string())).unwrap(), "NICK Jimmy".to_string());
+
+        assert_eq!(String::try_from(IrcMessage::USER{ username: "Jim1982".to_string(), realname: "James Bond".to_string() }).unwrap(), "USER Jim1982 0 * :James Bond".to_string());
     }
 }
