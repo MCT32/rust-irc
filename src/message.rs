@@ -126,7 +126,7 @@ impl TryFrom<&str> for GenericIrcCommand {
 impl From<GenericIrcCommand> for String {
     fn from(value: GenericIrcCommand) -> Self {
         match value {
-            GenericIrcCommand::Number(number) => number.to_string(),
+            GenericIrcCommand::Number(number) => format!("{:03}", number),
             GenericIrcCommand::Text(text) => text,
         }
     }
