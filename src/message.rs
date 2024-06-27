@@ -6,10 +6,8 @@ use crate::error::Error;
 pub enum IrcMessage {
     PASS(String),
     NICK(String),
-    USER{
-        username: String,
-        realname: String,
-    },
+    // username, realname
+    USER(String, String),
     Generic(GenericIrcMessage),
 }
 
@@ -22,8 +20,8 @@ impl TryFrom<GenericIrcMessage> for IrcMessage {
                 match command.as_str() {
                     "PASS" => Ok(Self::PASS(value.params.get(0).unwrap().clone())),
                     "NICK" => Ok(Self::NICK(value.params.get(0).unwrap().clone())),
-                    "USER" => Ok(Self::USER{ username: value.params.get(0).unwrap().clone(),
-                        realname: value.params.get(1).unwrap().clone() }),
+                    "USER" => Ok(Self::USER(value.params.get(0).unwrap().clone(),
+                        value.params.get(1).unwrap().clone())),
                     _ => Ok(Self::Generic(value)),
                 }
             },
@@ -58,7 +56,7 @@ impl From<IrcMessage> for GenericIrcMessage {
                 command: GenericIrcCommand::Text("NICK".to_string()),
                 params: vec![nickname],
             },
-            IrcMessage::USER{ username, realname } => GenericIrcMessage {
+            IrcMessage::USER(username, realname) => GenericIrcMessage {
                 tags: vec![],
                 prefix: None,
                 command: GenericIrcCommand::Text("USER".to_string()),
@@ -326,7 +324,7 @@ mod tests {
             params: vec!["Jimmy".to_string()],
         }.try_into().unwrap());
 
-        assert_eq!(IrcMessage::USER{ username: "Jim1982".to_string(), realname: "James Bond".to_string() }, GenericIrcMessage {
+        assert_eq!(IrcMessage::USER("Jim1982".to_string(), "James Bond".to_string()), GenericIrcMessage {
             tags: vec![],
             prefix: None,
             command: GenericIrcCommand::Text("USER".to_string()),
@@ -337,6 +335,6 @@ mod tests {
 
         assert_eq!(String::try_from(IrcMessage::NICK("Jimmy".to_string())).unwrap(), "NICK Jimmy".to_string());
 
-        assert_eq!(String::try_from(IrcMessage::USER{ username: "Jim1982".to_string(), realname: "James Bond".to_string() }).unwrap(), "USER Jim1982 0 * :James Bond".to_string());
+        assert_eq!(String::try_from(IrcMessage::USER("Jim1982".to_string(), "James Bond".to_string())).unwrap(), "USER Jim1982 0 * :James Bond".to_string());
     }
 }
