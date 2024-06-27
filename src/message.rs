@@ -8,6 +8,8 @@ pub enum IrcMessage {
     NICK(String),
     // username, realname
     USER(String, String),
+    PING(String),
+    PONG(String),
     Generic(GenericIrcMessage),
 }
 
@@ -22,6 +24,8 @@ impl TryFrom<GenericIrcMessage> for IrcMessage {
                     "NICK" => Ok(Self::NICK(value.params.get(0).unwrap().clone())),
                     "USER" => Ok(Self::USER(value.params.get(0).unwrap().clone(),
                         value.params.get(1).unwrap().clone())),
+                    "PING" => Ok(Self::PING(value.params.get(0).unwrap().clone())),
+                    "PONG" => Ok(Self::PONG(value.params.get(0).unwrap().clone())),
                     _ => Ok(Self::Generic(value)),
                 }
             },
@@ -61,6 +65,18 @@ impl From<IrcMessage> for GenericIrcMessage {
                 prefix: None,
                 command: GenericIrcCommand::Text("USER".to_string()),
                 params: vec![username, "0".to_string(), "*".to_string(), realname],
+            },
+            IrcMessage::PING(message) => GenericIrcMessage {
+                tags: vec![],
+                prefix: None,
+                command: GenericIrcCommand::Text("PING".to_string()),
+                params: vec![message],
+            },
+            IrcMessage::PONG(message) => GenericIrcMessage {
+                tags: vec![],
+                prefix: None,
+                command: GenericIrcCommand::Text("PONG".to_string()),
+                params: vec![message],
             },
             IrcMessage::Generic(generic) => generic,
         }
