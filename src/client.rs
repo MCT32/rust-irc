@@ -108,18 +108,18 @@ impl Client {
                         event_handler.on_raw_message(message.clone());
 
                         match message.clone() {
-                            IrcCommand::NOTICE(target, message) => {
+                            IrcCommand::Notice(target, message) => {
                                 // TODO: Improve target matching
                                 if target == username.as_str() || target == "*" {
                                     event_handler.on_notice(message);
                                 }
                             },
-                            IrcCommand::RPL_WELCOME(target, message) => {
+                            IrcCommand::RplWelcome(target, message) => {
                                 if target == username.as_str() {
                                     event_handler.on_welcome(message);
                                 }
                             },
-                            IrcCommand::RPL_YOURHOST(target, message) => {
+                            IrcCommand::RplYourHost(target, message) => {
                                 if target == username.as_str() {
                                     event_handler.on_your_host(message);
                                 }
@@ -129,8 +129,8 @@ impl Client {
                     }
 
                     match message {
-                        IrcCommand::PING(message) => {
-                            send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::PONG(message)).unwrap().as_bytes()).await.unwrap();
+                        IrcCommand::Ping(message) => {
+                            send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::Pong(message)).unwrap().as_bytes()).await.unwrap();
                         },
                         _ => {},
                     }
@@ -138,8 +138,8 @@ impl Client {
             });
         }
         
-        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::NICK(self.nickname.to_string())).unwrap().as_bytes()).await?;
-        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::USER(self.username.to_string(), self.realname.to_string())).unwrap().as_bytes()).await?;
+        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::Nick(self.nickname.to_string())).unwrap().as_bytes()).await?;
+        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::User(self.username.to_string(), self.realname.to_string())).unwrap().as_bytes()).await?;
         
         Ok(())
     }

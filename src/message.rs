@@ -114,16 +114,16 @@ impl TryFrom<IrcMessage> for String {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum IrcCommand {
-    PASS(String),
-    NICK(String),
+    Pass(String),
+    Nick(String),
     // username, realname
-    USER(String, String),
-    PING(String),
-    PONG(String),
-    NOTICE(String, String),
+    User(String, String),
+    Ping(String),
+    Pong(String),
+    Notice(String, String),
 
-    RPL_WELCOME(String, String), // 001 RPL_WELCOME
-    RPL_YOURHOST(String, String), // 002 RPL_YOURHOST
+    RplWelcome(String, String), // 001 RPL_WELCOME
+    RplYourHost(String, String), // 002 RPL_YOURHOST
 
     Generic(GenericIrcCommand),
 }
@@ -135,20 +135,20 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
         match &value.command {
             GenericIrcCommandType::Text(command) => {
                 match command.as_str() {
-                    "PASS" => Ok(Self::PASS(value.params.get(0).unwrap().clone())),
-                    "NICK" => Ok(Self::NICK(value.params.get(0).unwrap().clone())),
-                    "USER" => Ok(Self::USER(value.params.get(0).unwrap().clone(),
+                    "PASS" => Ok(Self::Pass(value.params.get(0).unwrap().clone())),
+                    "NICK" => Ok(Self::Nick(value.params.get(0).unwrap().clone())),
+                    "USER" => Ok(Self::User(value.params.get(0).unwrap().clone(),
                         value.params.get(1).unwrap().clone())),
-                    "PING" => Ok(Self::PING(value.params.get(0).unwrap().clone())),
-                    "PONG" => Ok(Self::PONG(value.params.get(0).unwrap().clone())),
-                    "NOTICE" => Ok(Self::NOTICE(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    "PING" => Ok(Self::Ping(value.params.get(0).unwrap().clone())),
+                    "PONG" => Ok(Self::Pong(value.params.get(0).unwrap().clone())),
+                    "NOTICE" => Ok(Self::Notice(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     _ => Ok(Self::Generic(value)),
                 }
             },
             GenericIrcCommandType::Number(command) => {
                 match command {
-                    001 => Ok(Self::RPL_WELCOME(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    002 => Ok(Self::RPL_YOURHOST(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    001 => Ok(Self::RplWelcome(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    002 => Ok(Self::RplYourHost(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     _ => Ok(Self::Generic(value)),
                 }
             },
@@ -167,36 +167,36 @@ impl TryFrom<&str> for IrcCommand {
 impl From<IrcCommand> for GenericIrcCommand {
     fn from(value: IrcCommand) -> Self {
         match value {
-            IrcCommand::PASS(password) => GenericIrcCommand {
+            IrcCommand::Pass(password) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("PASS".to_string()),
                 params: vec![password],
             },
-            IrcCommand::NICK(nickname) => GenericIrcCommand {
+            IrcCommand::Nick(nickname) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("NICK".to_string()),
                 params: vec![nickname],
             },
-            IrcCommand::USER(username, realname) => GenericIrcCommand {
+            IrcCommand::User(username, realname) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("USER".to_string()),
                 params: vec![username, "0".to_string(), "*".to_string(), realname],
             },
-            IrcCommand::PING(message) => GenericIrcCommand {
+            IrcCommand::Ping(message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("PING".to_string()),
                 params: vec![message],
             },
-            IrcCommand::PONG(message) => GenericIrcCommand {
+            IrcCommand::Pong(message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("PONG".to_string()),
                 params: vec![message],
             },
-            IrcCommand::NOTICE(target, message) => GenericIrcCommand {
+            IrcCommand::Notice(target, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("NOTICE".to_string()),
                 params: vec![target, message],
             },
 
-            IrcCommand::RPL_WELCOME(client, message) => GenericIrcCommand {
+            IrcCommand::RplWelcome(client, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Number(001),
                 params: vec![client, message],
             },
-            IrcCommand::RPL_YOURHOST(client, message) => GenericIrcCommand {
+            IrcCommand::RplYourHost(client, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Number(002),
                 params: vec![client, message],
             },
@@ -447,25 +447,25 @@ mod tests {
 
     #[test]
     fn message_variants() {
-        assert_eq!(IrcCommand::PASS("password123".to_string()), GenericIrcCommand {
+        assert_eq!(IrcCommand::Pass("password123".to_string()), GenericIrcCommand {
             command: GenericIrcCommandType::Text("PASS".to_string()),
             params: vec!["password123".to_string()],
         }.try_into().unwrap());
 
-        assert_eq!(IrcCommand::NICK("Jimmy".to_string()), GenericIrcCommand {
+        assert_eq!(IrcCommand::Nick("Jimmy".to_string()), GenericIrcCommand {
             command: GenericIrcCommandType::Text("NICK".to_string()),
             params: vec!["Jimmy".to_string()],
         }.try_into().unwrap());
 
-        assert_eq!(IrcCommand::USER("Jim1982".to_string(), "James Bond".to_string()), GenericIrcCommand {
+        assert_eq!(IrcCommand::User("Jim1982".to_string(), "James Bond".to_string()), GenericIrcCommand {
             command: GenericIrcCommandType::Text("USER".to_string()),
             params: vec!["Jim1982".to_string(), "James Bond".to_string()],
         }.try_into().unwrap());
 
-        assert_eq!(String::try_from(IrcCommand::PASS("password123".to_string())).unwrap(), "PASS password123".to_string());
+        assert_eq!(String::try_from(IrcCommand::Pass("password123".to_string())).unwrap(), "PASS password123".to_string());
 
-        assert_eq!(String::try_from(IrcCommand::NICK("Jimmy".to_string())).unwrap(), "NICK Jimmy".to_string());
+        assert_eq!(String::try_from(IrcCommand::Nick("Jimmy".to_string())).unwrap(), "NICK Jimmy".to_string());
 
-        assert_eq!(String::try_from(IrcCommand::USER("Jim1982".to_string(), "James Bond".to_string())).unwrap(), "USER Jim1982 0 * :James Bond".to_string());
+        assert_eq!(String::try_from(IrcCommand::User("Jim1982".to_string(), "James Bond".to_string())).unwrap(), "USER Jim1982 0 * :James Bond".to_string());
     }
 }
