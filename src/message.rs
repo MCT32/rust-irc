@@ -155,7 +155,14 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                     "PONG" => Ok(Self::Pong(value.params.get(0).unwrap().clone())),
                     "NOTICE" => Ok(Self::Notice(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     "ERROR" => Ok(Self::ErrorMsg(value.params.get(0).unwrap().clone())),
-                    _ => Ok(Self::Generic(value)),
+                    _ => {
+                        #[cfg(debug_assertions)]
+                        {
+                            eprintln!("Unknown command: {:?}", value.command);
+                        }
+
+                        Ok(Self::Generic(value))
+                    },
                 }
             },
             GenericIrcCommandType::Number(command) => {
@@ -173,7 +180,14 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                         cmodes_params: String::new(),
                     }),
                     005 => Ok(Self::RplISupport(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone().split(" ").into_iter().map(|m| m.to_string()).collect())),
-                    _ => Ok(Self::Generic(value)),
+                    _ => {
+                        #[cfg(debug_assertions)]
+                        {
+                            eprintln!("Unknown command: {:?}", value.command);
+                        }
+
+                        Ok(Self::Generic(value))
+                    },
                 }
             },
         }

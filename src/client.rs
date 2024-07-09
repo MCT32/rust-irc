@@ -176,7 +176,15 @@ impl Client {
                                     event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Supported capabilities: {}", caps.join(", "))));
                                 }
                             },
-                            _ => {},
+                            IrcCommand::Ping(_) => {},
+                            _ => {
+                                #[cfg(debug_assertions)]
+                                {
+                                    eprintln!("Unhandled message: {:?}", message.command);
+                                }
+
+                                event_handler.on_event(context.clone(), Event::UnhandledMessage(message.clone()));
+                            },
                         }
                     }
 
