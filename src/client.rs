@@ -157,7 +157,11 @@ impl Client {
 
                     match message.command {
                         IrcCommand::Ping(message) => {
-                            send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::Pong(message)).unwrap().as_bytes()).await.unwrap();
+                            send.lock().await.as_mut().unwrap().write(String::try_from(IrcMessage{
+                                tags: vec![],
+                                prefix: None,
+                                command: IrcCommand::Pong(message),
+                        }).unwrap().as_bytes()).await.unwrap();
                         },
                         _ => {},
                     }
