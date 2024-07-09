@@ -137,6 +137,12 @@ pub enum IrcCommand {
     }, // 004 RPL_MYINFO
     RplISupport(String, Vec<String>), // 005 RPL_ISUPPORT
 
+    RplLUserClient(String, String), // 251 RPL_LUSERCLIENT
+    RplLUserOp(String, String, String), // 252 RPL_LUSEROPS
+    RplLUserUnknown(String, String, String), // 253 RPL_LUSERUNKNOWN
+    RplLUserChannels(String, String, String), // 254 RPL_LUSERCHANNELS
+    RplLUserMe(String, String), // 255 RPL_LUSERME
+
     Generic(GenericIrcCommand),
 }
 
