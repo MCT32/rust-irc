@@ -14,6 +14,7 @@ use tokio::sync::Mutex;
 
 use crate::context::ConnectionStatus;
 use crate::context::Context;
+use crate::event::Event;
 use crate::event_handler::EventHandler;
 use crate::message::IrcCommand;
 use crate::message::IrcMessage;
@@ -106,9 +107,9 @@ impl Client {
             for event_handler in event_handlers.iter() {
                 let status = status.lock().await;
 
-                event_handler.on_status_change(Context {
+                event_handler.on_event(Event::StatusChange(Arc::new(Context {
                     status: Arc::new(status.clone()),
-                });
+                })));
             }
 
             tokio::spawn(async move {
@@ -116,39 +117,41 @@ impl Client {
                 let event_handlers = event_handlers.clone();
 
                 loop {
+                    let context = Arc::new(Context {
+                        status: Arc::new(status.lock().await.clone()),
+                    });
+
                     let mut line = String::new();
                     reader.read_line(&mut line).await.unwrap();
                     
                     let message = IrcMessage::try_from(line.as_str()).unwrap();
 
                     for event_handler in event_handlers.iter() {
-                        event_handler.on_raw_message(message.clone());
+                        event_handler.on_event(Event::RawMessage(context.clone(), message.clone()));
 
                         match message.clone().command {
                             IrcCommand::Notice(target, message) => {
                                 // TODO: Improve target matching
                                 if target == username.as_str() || target == "*" {
-                                    event_handler.on_notice(message);
+                                    event_handler.on_event(Event::Notice(context.clone(), message));
                                 }
                             },
                             IrcCommand::ErrorMsg(message) => {
-                                event_handler.on_error(message);
+                                event_handler.on_event(Event::ErrorMsg(context.clone(), message));
                             },
                             IrcCommand::RplWelcome(target, message) => {
                                 if target == username.as_str() {
                                     let mut status = status.lock().await;
                                     *status = ConnectionStatus::Connected;
 
-                                    event_handler.on_status_change(Context {
-                                        status: Arc::new(status.clone()),
-                                    });
+                                    event_handler.on_event(Event::StatusChange(context.clone()));
 
-                                    event_handler.on_welcome(message);
+                                    event_handler.on_event(Event::WelcomeMsg(context.clone(), message));
                                 }
                             },
                             IrcCommand::RplYourHost(target, message) => {
                                 if target == username.as_str() {
-                                    event_handler.on_your_host(message);
+                                    event_handler.on_event(Event::WelcomeMsg(context.clone(), message));
                                 }
                             },
                             _ => {},
