@@ -12,8 +12,11 @@ use tokio::net::tcp::OwnedWriteHalf;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
+use crate::context::ConnectionStatus;
+use crate::context::Context;
 use crate::event_handler::EventHandler;
 use crate::message::IrcCommand;
+use crate::message::IrcMessage;
 
 pub struct ClientBuilder {
     server: SocketAddr,
@@ -61,6 +64,8 @@ impl IntoFuture for ClientBuilder {
                 event_handlers: self.event_handlers,
 
                 send: Arc::new(Mutex::new(None)),
+
+                status: Arc::new(Mutex::new(ConnectionStatus::Connecting)),
             })
         })
     }
@@ -75,6 +80,8 @@ pub struct Client {
     event_handlers: Vec<Arc<dyn EventHandler>>,
 
     send: Arc<Mutex<Option<OwnedWriteHalf>>>,
+
+    status: Arc<Mutex<ConnectionStatus>>,
 }
 
 impl Client {
@@ -94,6 +101,16 @@ impl Client {
             let send = self.send.clone();
             let event_handlers = self.event_handlers.clone();
 
+            let status = self.status.clone();
+
+            for event_handler in event_handlers.iter() {
+                let status = status.lock().await;
+
+                event_handler.on_status_change(Context {
+                    status: Arc::new(status.clone()),
+                });
+            }
+
             tokio::spawn(async move {
                 let mut reader = BufReader::new(receive);
                 let event_handlers = event_handlers.clone();
@@ -102,20 +119,30 @@ impl Client {
                     let mut line = String::new();
                     reader.read_line(&mut line).await.unwrap();
                     
-                    let message = IrcCommand::try_from(line.as_str()).unwrap();
+                    let message = IrcMessage::try_from(line.as_str()).unwrap();
 
                     for event_handler in event_handlers.iter() {
                         event_handler.on_raw_message(message.clone());
 
-                        match message.clone() {
+                        match message.clone().command {
                             IrcCommand::Notice(target, message) => {
                                 // TODO: Improve target matching
                                 if target == username.as_str() || target == "*" {
                                     event_handler.on_notice(message);
                                 }
                             },
+                            IrcCommand::ErrorMsg(message) => {
+                                event_handler.on_error(message);
+                            },
                             IrcCommand::RplWelcome(target, message) => {
                                 if target == username.as_str() {
+                                    let mut status = status.lock().await;
+                                    *status = ConnectionStatus::Connected;
+
+                                    event_handler.on_status_change(Context {
+                                        status: Arc::new(status.clone()),
+                                    });
+
                                     event_handler.on_welcome(message);
                                 }
                             },
@@ -128,7 +155,7 @@ impl Client {
                         }
                     }
 
-                    match message {
+                    match message.command {
                         IrcCommand::Ping(message) => {
                             send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::Pong(message)).unwrap().as_bytes()).await.unwrap();
                         },
@@ -137,10 +164,26 @@ impl Client {
                 };
             });
         }
+
+        println!("{:?}", String::try_from(IrcMessage{
+            tags: vec![],
+            prefix: None,
+            command: IrcCommand::User(self.username.to_string(), self.realname.to_string()),
+        }).unwrap());
         
-        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::Nick(self.nickname.to_string())).unwrap().as_bytes()).await?;
-        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcCommand::User(self.username.to_string(), self.realname.to_string())).unwrap().as_bytes()).await?;
-        
+        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcMessage{
+            tags: vec![],
+            prefix: None,
+            command: IrcCommand::Nick(self.nickname.to_string()),
+        }).unwrap().as_bytes()).await?;
+        self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcMessage{
+            tags: vec![],
+            prefix: None,
+            command: IrcCommand::User(self.username.to_string(), self.realname.to_string()),
+        }).unwrap().as_bytes()).await?;
+
+        loop {}
+
         Ok(())
     }
 }

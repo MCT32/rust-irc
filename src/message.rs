@@ -121,6 +121,8 @@ pub enum IrcCommand {
     Ping(String),
     Pong(String),
     Notice(String, String),
+    // had to add Msg to stop compiler from complaining
+    ErrorMsg(String),
 
     RplWelcome(String, String), // 001 RPL_WELCOME
     RplYourHost(String, String), // 002 RPL_YOURHOST
@@ -142,6 +144,7 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                     "PING" => Ok(Self::Ping(value.params.get(0).unwrap().clone())),
                     "PONG" => Ok(Self::Pong(value.params.get(0).unwrap().clone())),
                     "NOTICE" => Ok(Self::Notice(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    "ERROR" => Ok(Self::ErrorMsg(value.params.get(0).unwrap().clone())),
                     _ => Ok(Self::Generic(value)),
                 }
             },
@@ -190,6 +193,10 @@ impl From<IrcCommand> for GenericIrcCommand {
             IrcCommand::Notice(target, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("NOTICE".to_string()),
                 params: vec![target, message],
+            },
+            IrcCommand::ErrorMsg(message) => GenericIrcCommand {
+                command: GenericIrcCommandType::Text("ERROR".to_string()),
+                params: vec![message],
             },
 
             IrcCommand::RplWelcome(client, message) => GenericIrcCommand {
@@ -284,10 +291,14 @@ impl TryFrom<&str> for GenericIrcCommand {
         let params = match caps.get(2).map(|m| m.as_str()) {
             None => vec![],
             Some(params) => {
-                match params.split_once(" :") {
+                match params.split_once(":") {
                     Some((params, trailing)) => {
                         // TODO: Surely better way to do this
-                        let mut params = params.split(' ').into_iter().collect::<Vec<_>>();
+                        let mut params = if params.is_empty() {
+                            vec![]
+                        } else {
+                            params.get(0..params.len() - 1).unwrap().split(' ').into_iter().collect::<Vec<_>>()
+                        };
                         params.append(&mut vec![trailing]);
                         params
                     },
@@ -403,6 +414,18 @@ mod tests {
                 command: GenericIrcCommandType::Text("MSG".to_string()),
                 params: vec!["#rust", "rustaceans rise!"].into_iter().map(|m| m.to_string()).collect(),
             }),
+        }));
+
+        assert_eq!(":*.freenode.net NOTICE * :*** Looking up your ident...\r\n".try_into(), Ok(IrcMessage {
+            tags: vec![],
+            prefix: Some("*.freenode.net".to_string()),
+            command: IrcCommand::Notice("*".to_string(), "*** Looking up your ident...".to_string()),
+        }));
+
+        assert_eq!("ERROR :Closing link: (~mct33@220.233.11.197) [Registration timeout]\r\n".try_into(), Ok(IrcMessage {
+            tags: vec![],
+            prefix: None,
+            command: IrcCommand::ErrorMsg("Closing link: (~mct33@220.233.11.197) [Registration timeout]".to_string()),
         }));
     }
 

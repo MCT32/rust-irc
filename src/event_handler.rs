@@ -1,7 +1,11 @@
-use crate::message::IrcCommand;
+use crate::{context::Context, message::{IrcCommand, IrcMessage}};
 
 pub trait EventHandler: Send + Sync {
-    fn on_raw_message(&self, message: IrcCommand) {
+    fn on_status_change(&self, ctx: Context) {
+        let _ = ctx;
+    }
+
+    fn on_raw_message(&self, message: IrcMessage) {
         let _ = message;
     }
 
@@ -10,6 +14,10 @@ pub trait EventHandler: Send + Sync {
         let _ = message;
     }
     fn on_your_host(&self, message: String) {
+        let _ = message;
+    }
+
+    fn on_error(&self, message: String) {
         let _ = message;
     }
 
