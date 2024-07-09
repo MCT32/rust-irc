@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
-use crate::{context::Context, message::IrcMessage};
+use crate::message::IrcMessage;
 
 pub enum Event {
-    RawMessage(Arc<Context>, IrcMessage),
-    StatusChange(Arc<Context>),
-    WelcomeMsg(Arc<Context>, String),
-    ErrorMsg(Arc<Context>, String),
-    Notice(Arc<Context>, String),
+    RawMessage(IrcMessage),
+    StatusChange,
+    WelcomeMsg(String),
+    ErrorMsg(String),
+    Notice(String),
 }

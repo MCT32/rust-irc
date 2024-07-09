@@ -107,9 +107,9 @@ impl Client {
             for event_handler in event_handlers.iter() {
                 let status = status.lock().await;
 
-                event_handler.on_event(Event::StatusChange(Arc::new(Context {
+                event_handler.on_event(Arc::new(Context {
                     status: Arc::new(status.clone()),
-                })));
+                }), Event::StatusChange);
             }
 
             tokio::spawn(async move {
@@ -127,31 +127,31 @@ impl Client {
                     let message = IrcMessage::try_from(line.as_str()).unwrap();
 
                     for event_handler in event_handlers.iter() {
-                        event_handler.on_event(Event::RawMessage(context.clone(), message.clone()));
+                        event_handler.on_event(context.clone(), Event::RawMessage(message.clone()));
 
                         match message.clone().command {
                             IrcCommand::Notice(target, message) => {
                                 // TODO: Improve target matching
                                 if target == username.as_str() || target == "*" {
-                                    event_handler.on_event(Event::Notice(context.clone(), message));
+                                    event_handler.on_event(context.clone(), Event::Notice(message));
                                 }
                             },
                             IrcCommand::ErrorMsg(message) => {
-                                event_handler.on_event(Event::ErrorMsg(context.clone(), message));
+                                event_handler.on_event(context.clone(), Event::ErrorMsg(message));
                             },
                             IrcCommand::RplWelcome(target, message) => {
                                 if target == username.as_str() {
                                     let mut status = status.lock().await;
                                     *status = ConnectionStatus::Connected;
 
-                                    event_handler.on_event(Event::StatusChange(context.clone()));
+                                    event_handler.on_event(context.clone(), Event::StatusChange);
 
-                                    event_handler.on_event(Event::WelcomeMsg(context.clone(), message));
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(message));
                                 }
                             },
                             IrcCommand::RplYourHost(target, message) => {
                                 if target == username.as_str() {
-                                    event_handler.on_event(Event::WelcomeMsg(context.clone(), message));
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(message));
                                 }
                             },
                             _ => {},

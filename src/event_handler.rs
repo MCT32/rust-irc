@@ -1,4 +1,6 @@
-use crate::event::Event;
+use std::sync::Arc;
+
+use crate::{context::Context, event::Event};
 
 pub trait EventHandler: Send + Sync {
     // fn on_status_change(&self, ctx: Context) {
@@ -25,7 +27,8 @@ pub trait EventHandler: Send + Sync {
     //     let _ = message;
     // }
 
-    fn on_event(&self, event: Event) {
+    fn on_event(&self, ctx: Arc<Context>, event: Event) {
         let _ = event;
+        let _ = ctx;
     }
 }
