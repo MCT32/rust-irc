@@ -164,12 +164,6 @@ impl Client {
                 };
             });
         }
-
-        println!("{:?}", String::try_from(IrcMessage{
-            tags: vec![],
-            prefix: None,
-            command: IrcCommand::User(self.username.to_string(), self.realname.to_string()),
-        }).unwrap());
         
         self.send.lock().await.as_mut().unwrap().write(String::try_from(IrcMessage{
             tags: vec![],
