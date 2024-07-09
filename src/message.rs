@@ -126,6 +126,16 @@ pub enum IrcCommand {
 
     RplWelcome(String, String), // 001 RPL_WELCOME
     RplYourHost(String, String), // 002 RPL_YOURHOST
+    RplCreated(String, String), // 003 RPL_CREATED
+    RplMyInfo{
+        client: String,
+        servername: String,
+        version: String,
+        umodes: String,
+        cmodes: String,
+        cmodes_params: String,
+    }, // 004 RPL_MYINFO
+    RplISupport(String, Vec<String>), // 005 RPL_ISUPPORT
 
     Generic(GenericIrcCommand),
 }
@@ -152,6 +162,17 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                 match command {
                     001 => Ok(Self::RplWelcome(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     002 => Ok(Self::RplYourHost(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    003 => Ok(Self::RplCreated(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    004 => Ok(Self::RplMyInfo{
+                        client: value.params.get(0).unwrap().clone(),
+                        servername: value.params.get(1).unwrap().clone(),
+                        version: value.params.get(2).unwrap().clone(),
+                        // TODO: Parse umodes and cmodes
+                        umodes: String::new(),
+                        cmodes: String::new(),
+                        cmodes_params: String::new(),
+                    }),
+                    005 => Ok(Self::RplISupport(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone().split(" ").into_iter().map(|m| m.to_string()).collect())),
                     _ => Ok(Self::Generic(value)),
                 }
             },
@@ -206,6 +227,25 @@ impl From<IrcCommand> for GenericIrcCommand {
             IrcCommand::RplYourHost(client, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Number(002),
                 params: vec![client, message],
+            },
+            IrcCommand::RplCreated(client, message) => GenericIrcCommand {
+                command: GenericIrcCommandType::Number(003),
+                params: vec![client, message],
+            },
+            IrcCommand::RplMyInfo {
+                client,
+                servername,
+                version,
+                umodes,
+                cmodes,
+                cmodes_params
+            } => GenericIrcCommand {
+                command: GenericIrcCommandType::Number(004),
+                params: vec![client, servername, version, umodes, cmodes, cmodes_params],
+            },
+            IrcCommand::RplISupport(client, caps) => GenericIrcCommand {
+                command: GenericIrcCommandType::Number(005),
+                params: vec![client, caps.join(" ")],
             },
 
             IrcCommand::Generic(generic) => generic,

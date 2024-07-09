@@ -154,6 +154,28 @@ impl Client {
                                     event_handler.on_event(context.clone(), Event::WelcomeMsg(message));
                                 }
                             },
+                            IrcCommand::RplCreated(target, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(message));
+                                }
+                            },
+                            IrcCommand::RplMyInfo{
+                                client,
+                                servername,
+                                version,
+                                umodes,
+                                cmodes,
+                                cmodes_params,
+                            } => {
+                                if client == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}, CModes Params: {}", servername, version, umodes, cmodes, cmodes_params)));
+                                }
+                            },
+                            IrcCommand::RplISupport(target, caps) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Supported capabilities: {}", caps.join(", "))));
+                                }
+                            },
                             _ => {},
                         }
                     }
