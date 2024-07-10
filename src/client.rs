@@ -16,6 +16,7 @@ use crate::context::ConnectionStatus;
 use crate::context::Context;
 use crate::event::Event;
 use crate::event_handler::EventHandler;
+use crate::message;
 use crate::message::IrcCommand;
 use crate::message::IrcMessage;
 
@@ -67,9 +68,18 @@ impl IntoFuture for ClientBuilder {
                 send: Arc::new(Mutex::new(None)),
 
                 status: Arc::new(Mutex::new(ConnectionStatus::Connecting)),
+                motd: Arc::new(Mutex::new(Motd::Empty)),
             })
         })
     }
+}
+
+// TODO: Perhaps move to a separate file
+#[derive(Debug, PartialEq, Clone)]
+pub enum Motd {
+    Empty,
+    Building(String),
+    Done(String),
 }
 
 pub struct Client {
@@ -83,6 +93,7 @@ pub struct Client {
     send: Arc<Mutex<Option<OwnedWriteHalf>>>,
 
     status: Arc<Mutex<ConnectionStatus>>,
+    motd: Arc<Mutex<Motd>>,
 }
 
 impl Client {
@@ -103,12 +114,15 @@ impl Client {
             let event_handlers = self.event_handlers.clone();
 
             let status = self.status.clone();
+            let motd = self.motd.clone();
 
             for event_handler in event_handlers.iter() {
                 let status = status.lock().await;
+                let motd = motd.lock().await;
 
                 event_handler.on_event(Arc::new(Context {
                     status: Arc::new(status.clone()),
+                    motd: Arc::new(motd.clone()),
                 }), Event::StatusChange);
             }
 
@@ -119,6 +133,7 @@ impl Client {
                 loop {
                     let context = Arc::new(Context {
                         status: Arc::new(status.lock().await.clone()),
+                        motd: Arc::new(motd.lock().await.clone()),
                     });
 
                     let mut line = String::new();
@@ -126,6 +141,7 @@ impl Client {
                     
                     let message = IrcMessage::try_from(line.as_str()).unwrap();
 
+                    // TODO: Make error handling happen after message parsing
                     for event_handler in event_handlers.iter() {
                         event_handler.on_event(context.clone(), Event::RawMessage(message.clone()));
 
@@ -209,6 +225,56 @@ impl Client {
                             IrcCommand::RplGlobalUsers(target, _users, message) => {
                                 if target == username.as_str() {
                                     event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
+                                }
+                            },
+                            // TODO: This code is executed per handler, which might fuck with the MOTD
+                            IrcCommand::RplMotdStart(target, message) => {
+                                if target == username.as_str() {
+                                    let mut motd = motd.lock().await;
+
+                                    if let Motd::Empty = *motd {
+                                        let mut message = message.clone();
+                                        message.push_str("\n");
+                                        *motd = Motd::Building(message);
+                                    } else {
+                                        // TODO: Better error handling
+                                        panic!("MOTD already started");
+                                    }
+                                }
+                            },
+                            IrcCommand::RplMotd(target, message) => {
+                                if target == username.as_str() {
+                                    let mut motd = motd.lock().await;
+
+                                    if let Motd::Building(buffer) = motd.clone() {
+                                        let mut buffer = buffer.clone();
+                                        buffer.push_str(&message);
+                                        buffer.push_str("\n");
+                                        *motd = Motd::Building(buffer);
+                                    } else {
+                                        // TODO: Better error handling
+                                        panic!("MOTD not started");
+                                    }
+                                }
+                            },
+                            IrcCommand::RplEndOfMotd(target, message) => {
+                                if target == username.as_str() {
+                                    let mut motd = motd.lock().await;
+
+                                    if let Motd::Building(buffer) = motd.clone() {
+                                        let mut buffer = buffer.clone();
+                                        buffer.push_str(&message);
+                                        *motd = Motd::Done(buffer);
+
+                                        // TODO: New context has to be made bacause data has changed, not ideal
+                                        event_handler.on_event(Arc::new(Context {
+                                            status: Arc::new(status.lock().await.clone()),
+                                            motd: Arc::new(motd.clone()),
+                                        }), Event::Motd);
+                                    } else {
+                                        // TODO: Better error handling
+                                        panic!("MOTD not started");
+                                    }
                                 }
                             },
                             IrcCommand::Ping(_) => {},

@@ -148,6 +148,10 @@ pub enum IrcCommand {
     RplLocalUsers(String, Option<(u32, u32)>, String), // 265 RPL_LOCALUSERS
     RplGlobalUsers(String, Option<(u32, u32)>, String), // 266 RPL_GLOBALUSERS
 
+    RplMotdStart(String, String), // 375 RPL_MOTDSTART
+    RplMotd(String, String), // 372 RPL_MOTD
+    RplEndOfMotd(String, String), // 376 RPL_ENDOFMOTD
+
     Generic(GenericIrcCommand),
 }
 
@@ -214,6 +218,9 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                             Err(Error::Invalid)
                         }
                     },
+                    375 => Ok(Self::RplMotdStart(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    372 => Ok(Self::RplMotd(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    376 => Ok(Self::RplEndOfMotd(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     _ => {
                         #[cfg(debug_assertions)]
                         {
@@ -348,6 +355,25 @@ impl From<IrcCommand> for GenericIrcCommand {
                         None => vec![client, message],
                         Some((current, max)) => vec![client, current.to_string(), max.to_string(), message],
                     },
+                }
+            },
+
+            IrcCommand::RplMotdStart(client, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(375),
+                    params: vec![client, message],
+                }
+            },
+            IrcCommand::RplMotd(client, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(372),
+                    params: vec![client, message],
+                }
+            },
+            IrcCommand::RplEndOfMotd(client, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(376),
+                    params: vec![client, message],
                 }
             },
 

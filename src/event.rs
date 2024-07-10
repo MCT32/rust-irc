@@ -8,5 +8,7 @@ pub enum Event {
     ErrorMsg(String),
     Notice(String),
 
+    Motd,
+
     UnhandledMessage(IrcMessage), 
 }
