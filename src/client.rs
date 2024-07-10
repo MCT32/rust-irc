@@ -142,6 +142,7 @@ impl Client {
                     let message = IrcMessage::try_from(line.as_str()).unwrap();
 
                     // TODO: Make error handling happen after message parsing
+                    // TODO: Keep track of some data sent from server
                     for event_handler in event_handlers.iter() {
                         event_handler.on_event(context.clone(), Event::RawMessage(message.clone()));
 
@@ -275,6 +276,11 @@ impl Client {
                                         // TODO: Better error handling
                                         panic!("MOTD not started");
                                     }
+                                }
+                            },
+                            IrcCommand::RplHostHidden(target, host, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", host, message)));
                                 }
                             },
                             IrcCommand::Ping(_) => {},

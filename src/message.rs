@@ -152,6 +152,9 @@ pub enum IrcCommand {
     RplMotd(String, String), // 372 RPL_MOTD
     RplEndOfMotd(String, String), // 376 RPL_ENDOFMOTD
 
+    // TODO: Figure out what this is
+    RplHostHidden(String, String, String), // 396 RPL_HOSTHIDDEN
+
     Generic(GenericIrcCommand),
 }
 
@@ -221,6 +224,7 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                     375 => Ok(Self::RplMotdStart(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     372 => Ok(Self::RplMotd(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     376 => Ok(Self::RplEndOfMotd(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    396 => Ok(Self::RplHostHidden(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone(), value.params.get(2).unwrap().clone())),
                     _ => {
                         #[cfg(debug_assertions)]
                         {
@@ -374,6 +378,13 @@ impl From<IrcCommand> for GenericIrcCommand {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(376),
                     params: vec![client, message],
+                }
+            },
+
+            IrcCommand::RplHostHidden(client, host, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(396),
+                    params: vec![client, host, message],
                 }
             },
 
