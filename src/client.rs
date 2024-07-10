@@ -201,6 +201,16 @@ impl Client {
                                     event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
                                 }
                             },
+                            IrcCommand::RplLocalUsers(target, _users, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
+                                }
+                            },
+                            IrcCommand::RplGlobalUsers(target, _users, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
+                                }
+                            },
                             IrcCommand::Ping(_) => {},
                             _ => {
                                 #[cfg(debug_assertions)]

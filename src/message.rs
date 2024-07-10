@@ -145,6 +145,9 @@ pub enum IrcCommand {
     RplLUserChannels(String, u32, String), // 254 RPL_LUSERCHANNELS
     RplLUserMe(String, String), // 255 RPL_LUSERME
 
+    RplLocalUsers(String, Option<(u32, u32)>, String), // 265 RPL_LOCALUSERS
+    RplGlobalUsers(String, Option<(u32, u32)>, String), // 266 RPL_GLOBALUSERS
+
     Generic(GenericIrcCommand),
 }
 
@@ -193,6 +196,24 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                     253 => Ok(Self::RplLUserUnknown(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
                     254 => Ok(Self::RplLUserChannels(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
                     255 => Ok(Self::RplLUserMe(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    265 => {
+                        if value.params.len() == 2 {
+                            Ok(Self::RplLocalUsers(value.params.get(0).unwrap().clone(), None, value.params.get(1).unwrap().clone()))
+                        } else if value.params.len() == 4 {
+                            Ok(Self::RplLocalUsers(value.params.get(0).unwrap().clone(), Some((value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().parse::<u32>().unwrap())), value.params.get(3).unwrap().clone()))
+                        } else {
+                            Err(Error::Invalid)
+                        }
+                    },
+                    266 => {
+                        if value.params.len() == 2 {
+                            Ok(Self::RplGlobalUsers(value.params.get(0).unwrap().clone(), None, value.params.get(1).unwrap().clone()))
+                        } else if value.params.len() == 4 {
+                            Ok(Self::RplGlobalUsers(value.params.get(0).unwrap().clone(), Some((value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().parse::<u32>().unwrap())), value.params.get(3).unwrap().clone()))
+                        } else {
+                            Err(Error::Invalid)
+                        }
+                    },
                     _ => {
                         #[cfg(debug_assertions)]
                         {
@@ -308,6 +329,25 @@ impl From<IrcCommand> for GenericIrcCommand {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(255),
                     params: vec![client, message],
+                }
+            },
+
+            IrcCommand::RplLocalUsers(client, users, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(265),
+                    params: match users {
+                        None => vec![client, message],
+                        Some((current, max)) => vec![client, current.to_string(), max.to_string(), message],
+                    },
+                }
+            },
+            IrcCommand::RplGlobalUsers(client, users, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(266),
+                    params: match users {
+                        None => vec![client, message],
+                        Some((current, max)) => vec![client, current.to_string(), max.to_string(), message],
+                    },
                 }
             },
 
