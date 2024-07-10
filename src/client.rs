@@ -16,7 +16,6 @@ use crate::context::ConnectionStatus;
 use crate::context::Context;
 use crate::event::Event;
 use crate::event_handler::EventHandler;
-use crate::message;
 use crate::message::IrcCommand;
 use crate::message::IrcMessage;
 
