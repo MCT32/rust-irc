@@ -1,3 +1,5 @@
+use std::vec;
+
 use regex::Regex;
 
 use crate::error::Error;
@@ -127,7 +129,7 @@ pub enum IrcCommand {
     RplWelcome(String, String), // 001 RPL_WELCOME
     RplYourHost(String, String), // 002 RPL_YOURHOST
     RplCreated(String, String), // 003 RPL_CREATED
-    RplMyInfo{
+    RplMyInfo {
         client: String,
         servername: String,
         version: String,
@@ -138,9 +140,9 @@ pub enum IrcCommand {
     RplISupport(String, Vec<String>), // 005 RPL_ISUPPORT
 
     RplLUserClient(String, String), // 251 RPL_LUSERCLIENT
-    RplLUserOp(String, String, String), // 252 RPL_LUSEROPS
-    RplLUserUnknown(String, String, String), // 253 RPL_LUSERUNKNOWN
-    RplLUserChannels(String, String, String), // 254 RPL_LUSERCHANNELS
+    RplLUserOp(String, u32, String), // 252 RPL_LUSEROPS
+    RplLUserUnknown(String, u32, String), // 253 RPL_LUSERUNKNOWN
+    RplLUserChannels(String, u32, String), // 254 RPL_LUSERCHANNELS
     RplLUserMe(String, String), // 255 RPL_LUSERME
 
     Generic(GenericIrcCommand),
@@ -180,12 +182,17 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                         client: value.params.get(0).unwrap().clone(),
                         servername: value.params.get(1).unwrap().clone(),
                         version: value.params.get(2).unwrap().clone(),
-                        // TODO: Parse umodes and cmodes
-                        umodes: String::new(),
-                        cmodes: String::new(),
-                        cmodes_params: String::new(),
+                        // TODO: Parse umodes and cmodes with their own struct
+                        umodes: value.params.get(3).unwrap().clone(),
+                        cmodes: value.params.get(4).unwrap().clone(),
+                        cmodes_params: value.params.get(5).unwrap().clone(),
                     }),
-                    005 => Ok(Self::RplISupport(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone().split(" ").into_iter().map(|m| m.to_string()).collect())),
+                    005 => Ok(Self::RplISupport(value.params.get(0).unwrap().clone(), value.params.into_iter().skip(1).collect())),
+                    251 => Ok(Self::RplLUserClient(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    252 => Ok(Self::RplLUserOp(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
+                    253 => Ok(Self::RplLUserUnknown(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
+                    254 => Ok(Self::RplLUserChannels(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
+                    255 => Ok(Self::RplLUserMe(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     _ => {
                         #[cfg(debug_assertions)]
                         {
@@ -263,9 +270,45 @@ impl From<IrcCommand> for GenericIrcCommand {
                 command: GenericIrcCommandType::Number(004),
                 params: vec![client, servername, version, umodes, cmodes, cmodes_params],
             },
-            IrcCommand::RplISupport(client, caps) => GenericIrcCommand {
-                command: GenericIrcCommandType::Number(005),
-                params: vec![client, caps.join(" ")],
+            IrcCommand::RplISupport(client, caps) => {
+                let mut params = vec![client];
+                params.extend(caps);
+
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(005),
+                    params,
+                }
+            },
+
+            IrcCommand::RplLUserClient(client, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(251),
+                    params: vec![client, message],
+                }
+            }
+            IrcCommand::RplLUserOp(client, ops, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(252),
+                    params: vec![client, ops.to_string(), message],
+                }
+            }
+            IrcCommand::RplLUserUnknown(client, connections, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(253),
+                    params: vec![client, connections.to_string(), message],
+                }
+            },
+            IrcCommand::RplLUserChannels(client, channels, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(254),
+                    params: vec![client, channels.to_string(), message],
+                }
+            },
+            IrcCommand::RplLUserMe(client, message) => {
+                GenericIrcCommand {
+                    command: GenericIrcCommandType::Number(255),
+                    params: vec![client, message],
+                }
             },
 
             IrcCommand::Generic(generic) => generic,

@@ -176,6 +176,31 @@ impl Client {
                                     event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Supported capabilities: {}", caps.join(", "))));
                                 }
                             },
+                            IrcCommand::RplLUserClient(target, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
+                                }
+                            },
+                            IrcCommand::RplLUserOp(target, ops, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", ops.to_string(), message)));
+                                }
+                            },
+                            IrcCommand::RplLUserUnknown(target, connections, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", connections.to_string(), message)));
+                                }
+                            },
+                            IrcCommand::RplLUserChannels(target, channels, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", channels.to_string(), message)));
+                                }
+                            },
+                            IrcCommand::RplLUserMe(target, message) => {
+                                if target == username.as_str() {
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
+                                }
+                            },
                             IrcCommand::Ping(_) => {},
                             _ => {
                                 #[cfg(debug_assertions)]
