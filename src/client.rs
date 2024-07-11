@@ -138,6 +138,7 @@ impl Client {
                     let mut line = String::new();
                     reader.read_line(&mut line).await.unwrap();
                     
+                    println!("{}", line);
                     let message = IrcMessage::try_from(line.as_str()).unwrap();
 
                     // TODO: Make error handling happen after message parsing
@@ -184,12 +185,16 @@ impl Client {
                                 cmodes_params,
                             } => {
                                 if client == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}, CModes Params: {}", servername, version, umodes, cmodes, cmodes_params)));
+                                    if let Some(cmodes_params) = cmodes_params {
+                                        event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}, CModes Params: {}", servername, version, umodes, cmodes, cmodes_params)));
+                                    } else {
+                                        event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}", servername, version, umodes, cmodes)));
+                                    }
                                 }
                             },
-                            IrcCommand::RplISupport(target, caps) => {
+                            IrcCommand::RplISupport(target, caps, message) => {
                                 if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Supported capabilities: {}", caps.join(", "))));
+                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", caps.join(", "), message)));
                                 }
                             },
                             IrcCommand::RplLUserClient(target, message) => {

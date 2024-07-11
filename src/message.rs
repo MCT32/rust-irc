@@ -49,23 +49,6 @@ impl TryFrom<&str> for IrcMessage {
             return Err(Error::Invalid);
         };
 
-        // let params = match caps.get(4).map(|m| m.as_str()) {
-        //     None => vec![],
-        //     Some(params) => {
-        //         match params.split_once(" :") {
-        //             Some((params, trailing)) => {
-        //                 // TODO: Surely better way to do this
-        //                 let mut params = params.split(' ').into_iter().collect::<Vec<_>>();
-        //                 params.append(&mut vec![trailing]);
-        //                 params
-        //             },
-        //             None => {
-        //                 params.split(' ').into_iter().collect::<Vec<_>>()
-        //             }
-        //         }
-        //     },
-        // }.into_iter().map(|m| m.to_string()).collect();
-
         Ok(IrcMessage {
             tags,
             prefix,
@@ -135,9 +118,10 @@ pub enum IrcCommand {
         version: String,
         umodes: String,
         cmodes: String,
-        cmodes_params: String,
+        cmodes_params: Option<String>,
     }, // 004 RPL_MYINFO
-    RplISupport(String, Vec<String>), // 005 RPL_ISUPPORT
+    // TODO: Add struct for caps
+    RplISupport(String, Vec<String>, String), // 005 RPL_ISUPPORT
 
     RplLUserClient(String, String), // 251 RPL_LUSERCLIENT
     RplLUserOp(String, u32, String), // 252 RPL_LUSEROPS
@@ -169,10 +153,10 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                     "NICK" => Ok(Self::Nick(value.params.get(0).unwrap().clone())),
                     "USER" => Ok(Self::User(value.params.get(0).unwrap().clone(),
                         value.params.get(1).unwrap().clone())),
-                    "PING" => Ok(Self::Ping(value.params.get(0).unwrap().clone())),
-                    "PONG" => Ok(Self::Pong(value.params.get(0).unwrap().clone())),
-                    "NOTICE" => Ok(Self::Notice(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    "ERROR" => Ok(Self::ErrorMsg(value.params.get(0).unwrap().clone())),
+                    "PING" => Ok(Self::Ping(value.trailing.unwrap())),
+                    "PONG" => Ok(Self::Pong(value.trailing.unwrap())),
+                    "NOTICE" => Ok(Self::Notice(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
+                    "ERROR" => Ok(Self::ErrorMsg(value.trailing.unwrap())),
                     _ => {
                         #[cfg(debug_assertions)]
                         {
@@ -185,9 +169,9 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
             },
             GenericIrcCommandType::Number(command) => {
                 match command {
-                    001 => Ok(Self::RplWelcome(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    002 => Ok(Self::RplYourHost(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    003 => Ok(Self::RplCreated(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    001 => Ok(Self::RplWelcome(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
+                    002 => Ok(Self::RplYourHost(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
+                    003 => Ok(Self::RplCreated(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
                     004 => Ok(Self::RplMyInfo{
                         client: value.params.get(0).unwrap().clone(),
                         servername: value.params.get(1).unwrap().clone(),
@@ -195,9 +179,9 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                         // TODO: Parse umodes and cmodes with their own struct
                         umodes: value.params.get(3).unwrap().clone(),
                         cmodes: value.params.get(4).unwrap().clone(),
-                        cmodes_params: value.params.get(5).unwrap().clone(),
+                        cmodes_params: value.params.get(5).map(|m| m.clone()),
                     }),
-                    005 => Ok(Self::RplISupport(value.params.get(0).unwrap().clone(), value.params.into_iter().skip(1).collect())),
+                    005 => Ok(Self::RplISupport(value.params.get(0).unwrap().clone(), value.params.into_iter().skip(1).collect(), value.trailing.unwrap())),
                     251 => Ok(Self::RplLUserClient(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
                     252 => Ok(Self::RplLUserOp(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
                     253 => Ok(Self::RplLUserUnknown(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
@@ -253,43 +237,53 @@ impl From<IrcCommand> for GenericIrcCommand {
             IrcCommand::Pass(password) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("PASS".to_string()),
                 params: vec![password],
+                trailing: None,
             },
             IrcCommand::Nick(nickname) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("NICK".to_string()),
                 params: vec![nickname],
+                trailing: None,
             },
             IrcCommand::User(username, realname) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("USER".to_string()),
                 params: vec![username, "0".to_string(), "*".to_string(), realname],
+                trailing: None,
             },
             IrcCommand::Ping(message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("PING".to_string()),
-                params: vec![message],
+                params: vec![],
+                trailing: Some(message),
             },
             IrcCommand::Pong(message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("PONG".to_string()),
-                params: vec![message],
+                params: vec![],
+                trailing: Some(message),
             },
             IrcCommand::Notice(target, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("NOTICE".to_string()),
-                params: vec![target, message],
+                params: vec![target],
+                trailing: Some(message),
             },
             IrcCommand::ErrorMsg(message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Text("ERROR".to_string()),
-                params: vec![message],
+                params: vec![],
+                trailing: Some(message),
             },
 
             IrcCommand::RplWelcome(client, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Number(001),
-                params: vec![client, message],
+                params: vec![client],
+                trailing: Some(message),
             },
             IrcCommand::RplYourHost(client, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Number(002),
-                params: vec![client, message],
+                params: vec![client],
+                trailing: Some(message),
             },
             IrcCommand::RplCreated(client, message) => GenericIrcCommand {
                 command: GenericIrcCommandType::Number(003),
-                params: vec![client, message],
+                params: vec![client],
+                trailing: Some(message),
             },
             IrcCommand::RplMyInfo {
                 client,
@@ -300,46 +294,57 @@ impl From<IrcCommand> for GenericIrcCommand {
                 cmodes_params
             } => GenericIrcCommand {
                 command: GenericIrcCommandType::Number(004),
-                params: vec![client, servername, version, umodes, cmodes, cmodes_params],
+                params: if let Some(cmodes_params) = cmodes_params {
+                    vec![client, servername, version, umodes, cmodes, cmodes_params]
+                } else {
+                    vec![client, servername, version, umodes, cmodes]
+                },
+                trailing: None,
             },
-            IrcCommand::RplISupport(client, caps) => {
+            IrcCommand::RplISupport(client, caps, message) => {
                 let mut params = vec![client];
                 params.extend(caps);
 
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(005),
                     params,
+                    trailing: Some(message),
                 }
             },
 
             IrcCommand::RplLUserClient(client, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(251),
-                    params: vec![client, message],
+                    params: vec![client],
+                    trailing: Some(message),
                 }
             }
             IrcCommand::RplLUserOp(client, ops, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(252),
-                    params: vec![client, ops.to_string(), message],
+                    params: vec![client, ops.to_string()],
+                    trailing: Some(message),
                 }
             }
             IrcCommand::RplLUserUnknown(client, connections, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(253),
-                    params: vec![client, connections.to_string(), message],
+                    params: vec![client, connections.to_string()],
+                    trailing: Some(message),
                 }
             },
             IrcCommand::RplLUserChannels(client, channels, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(254),
-                    params: vec![client, channels.to_string(), message],
+                    params: vec![client, channels.to_string()],
+                    trailing: Some(message),
                 }
             },
             IrcCommand::RplLUserMe(client, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(255),
-                    params: vec![client, message],
+                    params: vec![client],
+                    trailing: Some(message),
                 }
             },
 
@@ -347,44 +352,50 @@ impl From<IrcCommand> for GenericIrcCommand {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(265),
                     params: match users {
-                        None => vec![client, message],
-                        Some((current, max)) => vec![client, current.to_string(), max.to_string(), message],
+                        None => vec![client],
+                        Some((current, max)) => vec![client, current.to_string(), max.to_string()],
                     },
+                    trailing: Some(message),
                 }
             },
             IrcCommand::RplGlobalUsers(client, users, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(266),
                     params: match users {
-                        None => vec![client, message],
-                        Some((current, max)) => vec![client, current.to_string(), max.to_string(), message],
+                        None => vec![client],
+                        Some((current, max)) => vec![client, current.to_string(), max.to_string()],
                     },
+                    trailing: Some(message),
                 }
             },
 
             IrcCommand::RplMotdStart(client, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(375),
-                    params: vec![client, message],
+                    params: vec![client],
+                    trailing: Some(message),
                 }
             },
             IrcCommand::RplMotd(client, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(372),
-                    params: vec![client, message],
+                    params: vec![client],
+                    trailing: Some(message),
                 }
             },
             IrcCommand::RplEndOfMotd(client, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(376),
-                    params: vec![client, message],
+                    params: vec![client],
+                    trailing: Some(message),
                 }
             },
 
             IrcCommand::RplHostHidden(client, host, message) => {
                 GenericIrcCommand {
                     command: GenericIrcCommandType::Number(396),
-                    params: vec![client, host, message],
+                    params: vec![client, host],
+                    trailing: Some(message),
                 }
             },
 
@@ -449,14 +460,16 @@ impl From<GenericIrcCommandType> for String {
 #[derive(Debug, PartialEq, Clone)]
 pub struct GenericIrcCommand {
     pub command: GenericIrcCommandType,
+    // TODO: Store trailing seperately
     pub params: Vec<String>,
+    pub trailing: Option<String>,
 }
 
 impl TryFrom<&str> for GenericIrcCommand {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let re = Regex::new("^([A-Z]+|[0-9]{3})(?: ([^\\n\\r\\x00]+))?$").unwrap();
+        let re = Regex::new("^([A-Z]+|[0-9]{3})((?: (?:[^:\\n\\r\\x00 ][^\\n\\r\\x00 ]*))*)?(?: :([^\\n\\r]+))?$").unwrap();
 
         let Some(caps) = re.captures(value) else {
             return Err(Error::NoMatch(value.to_string()));
@@ -471,27 +484,22 @@ impl TryFrom<&str> for GenericIrcCommand {
         let params = match caps.get(2).map(|m| m.as_str()) {
             None => vec![],
             Some(params) => {
-                match params.split_once(":") {
-                    Some((params, trailing)) => {
-                        // TODO: Surely better way to do this
-                        let mut params = if params.is_empty() {
-                            vec![]
-                        } else {
-                            params.get(0..params.len() - 1).unwrap().split(' ').into_iter().collect::<Vec<_>>()
-                        };
-                        params.append(&mut vec![trailing]);
-                        params
-                    },
-                    None => {
-                        params.split(' ').into_iter().collect::<Vec<_>>()
-                    }
+                let trimmed = params.trim_start();
+
+                if trimmed.is_empty() {
+                    vec![]
+                } else {
+                    trimmed.split(' ').into_iter().collect::<Vec<_>>()
                 }
-            },
+            }
         }.into_iter().map(|m| m.to_string()).collect();
+
+        let trailing = caps.get(3).map(|m| m.as_str().to_string());
         
         Ok(GenericIrcCommand {
             command,
             params,
+            trailing,
         })
     }
 }
@@ -501,30 +509,6 @@ impl TryFrom<GenericIrcCommand> for String {
 
     fn try_from(value: GenericIrcCommand) -> Result<Self, Error> {
         let mut buffer = String::new();
-
-        // if !value.tags.is_empty() {
-        //     buffer.push_str("@");
-
-        //     let length = value.tags.len();
-
-        //     for (index, tag) in value.tags.into_iter().enumerate() {
-        //         if let Some(value) = tag.1 {
-        //             buffer.push_str(format!("{}={}", tag.0.as_str(), &value).as_str());
-        //         } else {
-        //             buffer.push_str(tag.0.as_str());
-        //         }
-                
-        //         if !(index == length - 1) {
-        //             buffer.push_str(";");
-        //         }
-        //     }
-
-        //     buffer.push_str(" ");
-        // }
-
-        // if let Some(prefix) = value.prefix {
-        //     buffer.push_str(format!(":{} ", prefix).as_str());
-        // };
 
         buffer.push_str(String::from(value.command).as_str());
 
@@ -546,7 +530,9 @@ impl TryFrom<GenericIrcCommand> for String {
             }
         }
 
-        // buffer.push_str("\r\n");
+        if let Some(trailing) = value.trailing {
+            buffer.push_str(format!(" :{}", trailing).as_str());
+        }
 
         Ok(buffer)
     }
@@ -554,6 +540,7 @@ impl TryFrom<GenericIrcCommand> for String {
 
 
 
+// TODO: May be overkill, but consider adding a test for every message type
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -566,6 +553,7 @@ mod tests {
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Text("LEAVE".to_string()),
                 params: vec![],
+                trailing: None,
             }),
         }));
 
@@ -574,16 +562,18 @@ mod tests {
             prefix: Some("server".to_string()),
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Text("PRIVMSG".to_string()),
-                params: vec!["#meme", "11/10 cock"].into_iter().map(|m| m.to_string()).collect(),
+                params: vec!["#meme".to_string()],
+                trailing: Some("11/10 cock".to_string()),
             }),
         }));
 
-        assert_eq!(":server 404 shit\r\n".try_into(), Ok(IrcMessage {
+        assert_eq!(":server 404 :shit\r\n".try_into(), Ok(IrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Number(404),
-                params: vec!["shit".to_string()],
+                params: vec![],
+                trailing: Some("shit".to_string()),
             }),
         }));
 
@@ -592,7 +582,8 @@ mod tests {
             prefix: Some("127.0.0.1".to_string()),
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Text("MSG".to_string()),
-                params: vec!["#rust", "rustaceans rise!"].into_iter().map(|m| m.to_string()).collect(),
+                params: vec!["#rust".to_string()],
+                trailing: Some("rustaceans rise!".to_string()),
             }),
         }));
 
@@ -617,6 +608,7 @@ mod tests {
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Text("LEAVE".to_string()),
                 params: vec![],
+                trailing: None,
             }),
         }).unwrap());
 
@@ -625,16 +617,18 @@ mod tests {
             prefix: Some("server".to_string()),
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Text("MSG".to_string()),
-                params: vec!["#meme", "11/10 cock"].into_iter().map(|m| m.to_string()).collect(),
+                params: vec!["#meme".to_string()],
+                trailing: Some("11/10 cock".to_string()),
             }),
         }).unwrap());
 
-        assert_eq!(":server 404 shit\r\n".to_string(), String::try_from(IrcMessage {
+        assert_eq!(":server 404 :shit\r\n".to_string(), String::try_from(IrcMessage {
             tags: vec![],
             prefix: Some("server".to_string()),
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Number(404),
-                params: vec!["shit".to_string()],
+                params: vec![],
+                trailing: Some("shit".to_string()),
             }),
         }).unwrap());
 
@@ -643,7 +637,8 @@ mod tests {
             prefix: Some("127.0.0.1".to_string()),
             command: IrcCommand::Generic(GenericIrcCommand {
                 command: GenericIrcCommandType::Text("MSG".to_string()),
-                params: vec!["#rust", "rustaceans rise!"].into_iter().map(|m| m.to_string()).collect(),
+                params: vec!["#rust".to_string()],
+                trailing: Some("rustaceans rise!".to_string()),
             }),
         }).unwrap());
     }
@@ -653,16 +648,19 @@ mod tests {
         assert_eq!(IrcCommand::Pass("password123".to_string()), GenericIrcCommand {
             command: GenericIrcCommandType::Text("PASS".to_string()),
             params: vec!["password123".to_string()],
+            trailing: None,
         }.try_into().unwrap());
 
         assert_eq!(IrcCommand::Nick("Jimmy".to_string()), GenericIrcCommand {
             command: GenericIrcCommandType::Text("NICK".to_string()),
             params: vec!["Jimmy".to_string()],
+            trailing: None,
         }.try_into().unwrap());
 
         assert_eq!(IrcCommand::User("Jim1982".to_string(), "James Bond".to_string()), GenericIrcCommand {
             command: GenericIrcCommandType::Text("USER".to_string()),
             params: vec!["Jim1982".to_string(), "James Bond".to_string()],
+            trailing: None,
         }.try_into().unwrap());
 
         assert_eq!(String::try_from(IrcCommand::Pass("password123".to_string())).unwrap(), "PASS password123".to_string());
