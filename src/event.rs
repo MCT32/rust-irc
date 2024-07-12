@@ -1,5 +1,6 @@
 use crate::message::IrcMessage;
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     RawMessage(IrcMessage),
 

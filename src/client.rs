@@ -130,171 +130,203 @@ impl Client {
                 let event_handlers = event_handlers.clone();
 
                 loop {
-                    let context = Arc::new(Context {
-                        status: Arc::new(status.lock().await.clone()),
-                        motd: Arc::new(motd.lock().await.clone()),
-                    });
-
                     let mut line = String::new();
                     reader.read_line(&mut line).await.unwrap();
                     
                     let message = IrcMessage::try_from(line.as_str()).unwrap();
+
+                    let events = match message.clone().command {
+                        IrcCommand::Notice(target, message) => {
+                            // TODO: Improve target matching
+                            if target == username.as_str() || target == "*" {
+                                vec![Event::Notice(message)]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::ErrorMsg(message) => {
+                            vec![Event::ErrorMsg(message)]
+                        },
+                        IrcCommand::RplWelcome(target, message) => {
+                            if target == username.as_str() {
+                                let mut status = status.lock().await;
+                                *status = ConnectionStatus::Connected;
+
+                                vec![Event::StatusChange, Event::WelcomeMsg(message)]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplYourHost(target, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(message)]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplCreated(target, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(message)]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplMyInfo{
+                            client,
+                            servername,
+                            version,
+                            umodes,
+                            cmodes,
+                            cmodes_params,
+                        } => {
+                            if client == username.as_str() {
+                                if let Some(cmodes_params) = cmodes_params {
+                                    // TODO: Message formatting should probably be handled by the client
+                                    vec![Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}, CModes Params: {}", servername, version, umodes, cmodes, cmodes_params))]
+                                } else {
+                                    vec![Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}", servername, version, umodes, cmodes))]
+                                }
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplISupport(target, caps, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{} {}", caps.join(", "), message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplLUserClient(target, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{}", message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplLUserOp(target, ops, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{} {}", ops.to_string(), message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplLUserUnknown(target, connections, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{} {}", connections.to_string(), message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplLUserChannels(target, channels, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{} {}", channels.to_string(), message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplLUserMe(target, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{}", message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplLocalUsers(target, _users, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{}", message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplGlobalUsers(target, _users, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{}", message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplMotdStart(target, message) => {
+                            if target == username.as_str() {
+                                let mut motd = motd.lock().await;
+
+                                if let Motd::Empty = *motd {
+                                    let mut message = message.clone();
+                                    message.push_str("\n");
+                                    *motd = Motd::Building(message);
+                                } else {
+                                    // TODO: Better error handling
+                                    panic!("MOTD already started");
+                                }
+                            }
+
+                            vec![]
+                        },
+                        IrcCommand::RplMotd(target, message) => {
+                            if target == username.as_str() {
+                                let mut motd = motd.lock().await;
+
+                                if let Motd::Building(buffer) = motd.clone() {
+                                    let mut buffer = buffer.clone();
+                                    buffer.push_str(&message);
+                                    buffer.push_str("\n");
+                                    *motd = Motd::Building(buffer);
+                                } else {
+                                    // TODO: Better error handling
+                                    panic!("MOTD not started");
+                                }
+                            }
+
+                            vec![]
+                        },
+                        IrcCommand::RplEndOfMotd(target, message) => {
+                            if target == username.as_str() {
+                                let mut motd = motd.lock().await;
+
+                                if let Motd::Building(buffer) = motd.clone() {
+                                    let mut buffer = buffer.clone();
+                                    buffer.push_str(&message);
+                                    *motd = Motd::Done(buffer);
+
+                                    vec![Event::Motd]
+                                } else {
+                                    // TODO: Better error handling
+                                    panic!("MOTD not started");
+                                }
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::RplHostHidden(target, host, message) => {
+                            if target == username.as_str() {
+                                vec![Event::WelcomeMsg(format!("{} {}", host, message))]
+                            } else {
+                                vec![]
+                            }
+                        },
+                        IrcCommand::Ping(_) => vec![],
+                        _ => {
+                            #[cfg(debug_assertions)]
+                            {
+                                eprintln!("Unhandled message: {:?}", message.command);
+                            }
+
+                            vec![Event::UnhandledMessage(message.clone())]
+                        },
+                    };
+
+                    let context = Arc::new(Context {
+                        status: Arc::new(status.lock().await.clone()),
+                        motd: Arc::new(motd.lock().await.clone()),
+                    });
 
                     // TODO: Make error handling happen after message parsing
                     // TODO: Keep track of some data sent from server
                     for event_handler in event_handlers.iter() {
                         event_handler.on_event(context.clone(), Event::RawMessage(message.clone()));
 
-                        match message.clone().command {
-                            IrcCommand::Notice(target, message) => {
-                                // TODO: Improve target matching
-                                if target == username.as_str() || target == "*" {
-                                    event_handler.on_event(context.clone(), Event::Notice(message));
-                                }
-                            },
-                            IrcCommand::ErrorMsg(message) => {
-                                event_handler.on_event(context.clone(), Event::ErrorMsg(message));
-                            },
-                            IrcCommand::RplWelcome(target, message) => {
-                                if target == username.as_str() {
-                                    let mut status = status.lock().await;
-                                    *status = ConnectionStatus::Connected;
-
-                                    event_handler.on_event(context.clone(), Event::StatusChange);
-
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(message));
-                                }
-                            },
-                            IrcCommand::RplYourHost(target, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(message));
-                                }
-                            },
-                            IrcCommand::RplCreated(target, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(message));
-                                }
-                            },
-                            IrcCommand::RplMyInfo{
-                                client,
-                                servername,
-                                version,
-                                umodes,
-                                cmodes,
-                                cmodes_params,
-                            } => {
-                                if client == username.as_str() {
-                                    if let Some(cmodes_params) = cmodes_params {
-                                        event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}, CModes Params: {}", servername, version, umodes, cmodes, cmodes_params)));
-                                    } else {
-                                        event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}", servername, version, umodes, cmodes)));
-                                    }
-                                }
-                            },
-                            IrcCommand::RplISupport(target, caps, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", caps.join(", "), message)));
-                                }
-                            },
-                            IrcCommand::RplLUserClient(target, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
-                                }
-                            },
-                            IrcCommand::RplLUserOp(target, ops, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", ops.to_string(), message)));
-                                }
-                            },
-                            IrcCommand::RplLUserUnknown(target, connections, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", connections.to_string(), message)));
-                                }
-                            },
-                            IrcCommand::RplLUserChannels(target, channels, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", channels.to_string(), message)));
-                                }
-                            },
-                            IrcCommand::RplLUserMe(target, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
-                                }
-                            },
-                            IrcCommand::RplLocalUsers(target, _users, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
-                                }
-                            },
-                            IrcCommand::RplGlobalUsers(target, _users, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{}", message)));
-                                }
-                            },
-                            // TODO: This code is executed per handler, which might fuck with the MOTD
-                            IrcCommand::RplMotdStart(target, message) => {
-                                if target == username.as_str() {
-                                    let mut motd = motd.lock().await;
-
-                                    if let Motd::Empty = *motd {
-                                        let mut message = message.clone();
-                                        message.push_str("\n");
-                                        *motd = Motd::Building(message);
-                                    } else {
-                                        // TODO: Better error handling
-                                        panic!("MOTD already started");
-                                    }
-                                }
-                            },
-                            IrcCommand::RplMotd(target, message) => {
-                                if target == username.as_str() {
-                                    let mut motd = motd.lock().await;
-
-                                    if let Motd::Building(buffer) = motd.clone() {
-                                        let mut buffer = buffer.clone();
-                                        buffer.push_str(&message);
-                                        buffer.push_str("\n");
-                                        *motd = Motd::Building(buffer);
-                                    } else {
-                                        // TODO: Better error handling
-                                        panic!("MOTD not started");
-                                    }
-                                }
-                            },
-                            IrcCommand::RplEndOfMotd(target, message) => {
-                                if target == username.as_str() {
-                                    let mut motd = motd.lock().await;
-
-                                    if let Motd::Building(buffer) = motd.clone() {
-                                        let mut buffer = buffer.clone();
-                                        buffer.push_str(&message);
-                                        *motd = Motd::Done(buffer);
-
-                                        // TODO: New context has to be made bacause data has changed, not ideal
-                                        event_handler.on_event(Arc::new(Context {
-                                            status: Arc::new(status.lock().await.clone()),
-                                            motd: Arc::new(motd.clone()),
-                                        }), Event::Motd);
-                                    } else {
-                                        // TODO: Better error handling
-                                        panic!("MOTD not started");
-                                    }
-                                }
-                            },
-                            IrcCommand::RplHostHidden(target, host, message) => {
-                                if target == username.as_str() {
-                                    event_handler.on_event(context.clone(), Event::WelcomeMsg(format!("{} {}", host, message)));
-                                }
-                            },
-                            IrcCommand::Ping(_) => {},
-                            _ => {
-                                #[cfg(debug_assertions)]
-                                {
-                                    eprintln!("Unhandled message: {:?}", message.command);
-                                }
-
-                                event_handler.on_event(context.clone(), Event::UnhandledMessage(message.clone()));
-                            },
+                        for event in events.iter() {
+                            event_handler.on_event(context.clone(), event.clone());
                         }
                     }
 
