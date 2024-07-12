@@ -138,7 +138,6 @@ impl Client {
                     let mut line = String::new();
                     reader.read_line(&mut line).await.unwrap();
                     
-                    println!("{}", line);
                     let message = IrcMessage::try_from(line.as_str()).unwrap();
 
                     // TODO: Make error handling happen after message parsing

@@ -182,33 +182,33 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                         cmodes_params: value.params.get(5).map(|m| m.clone()),
                     }),
                     005 => Ok(Self::RplISupport(value.params.get(0).unwrap().clone(), value.params.into_iter().skip(1).collect(), value.trailing.unwrap())),
-                    251 => Ok(Self::RplLUserClient(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    252 => Ok(Self::RplLUserOp(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
-                    253 => Ok(Self::RplLUserUnknown(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
-                    254 => Ok(Self::RplLUserChannels(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().clone())),
-                    255 => Ok(Self::RplLUserMe(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
+                    251 => Ok(Self::RplLUserClient(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
+                    252 => Ok(Self::RplLUserOp(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.trailing.unwrap())),
+                    253 => Ok(Self::RplLUserUnknown(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.trailing.unwrap())),
+                    254 => Ok(Self::RplLUserChannels(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().parse::<u32>().unwrap(), value.trailing.unwrap())),
+                    255 => Ok(Self::RplLUserMe(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
                     265 => {
-                        if value.params.len() == 2 {
-                            Ok(Self::RplLocalUsers(value.params.get(0).unwrap().clone(), None, value.params.get(1).unwrap().clone()))
-                        } else if value.params.len() == 4 {
-                            Ok(Self::RplLocalUsers(value.params.get(0).unwrap().clone(), Some((value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().parse::<u32>().unwrap())), value.params.get(3).unwrap().clone()))
+                        if value.params.len() == 1 {
+                            Ok(Self::RplLocalUsers(value.params.get(0).unwrap().clone(), None, value.trailing.unwrap()))
+                        } else if value.params.len() == 3 {
+                            Ok(Self::RplLocalUsers(value.params.get(0).unwrap().clone(), Some((value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().parse::<u32>().unwrap())), value.trailing.unwrap()))
                         } else {
                             Err(Error::Invalid)
                         }
                     },
                     266 => {
-                        if value.params.len() == 2 {
-                            Ok(Self::RplGlobalUsers(value.params.get(0).unwrap().clone(), None, value.params.get(1).unwrap().clone()))
-                        } else if value.params.len() == 4 {
-                            Ok(Self::RplGlobalUsers(value.params.get(0).unwrap().clone(), Some((value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().parse::<u32>().unwrap())), value.params.get(3).unwrap().clone()))
+                        if value.params.len() == 1 {
+                            Ok(Self::RplGlobalUsers(value.params.get(0).unwrap().clone(), None, value.trailing.unwrap()))
+                        } else if value.params.len() == 3 {
+                            Ok(Self::RplGlobalUsers(value.params.get(0).unwrap().clone(), Some((value.params.get(1).unwrap().parse::<u32>().unwrap(), value.params.get(2).unwrap().parse::<u32>().unwrap())), value.trailing.unwrap()))
                         } else {
                             Err(Error::Invalid)
                         }
                     },
-                    375 => Ok(Self::RplMotdStart(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    372 => Ok(Self::RplMotd(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    376 => Ok(Self::RplEndOfMotd(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone())),
-                    396 => Ok(Self::RplHostHidden(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone(), value.params.get(2).unwrap().clone())),
+                    375 => Ok(Self::RplMotdStart(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
+                    372 => Ok(Self::RplMotd(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
+                    376 => Ok(Self::RplEndOfMotd(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
+                    396 => Ok(Self::RplHostHidden(value.params.get(0).unwrap().clone(), value.params.get(1).unwrap().clone(), value.trailing.unwrap())),
                     _ => {
                         #[cfg(debug_assertions)]
                         {
