@@ -114,8 +114,8 @@ pub enum IrcCommand {
     RplCreated(String, String), // 003 RPL_CREATED
     RplMyInfo {
         client: String,
-        servername: String,
-        version: String,
+        server_name: String,
+        server_version: String,
         umodes: String,
         cmodes: String,
         cmodes_params: Option<String>,
@@ -174,8 +174,8 @@ impl TryFrom<GenericIrcCommand> for IrcCommand {
                     003 => Ok(Self::RplCreated(value.params.get(0).unwrap().clone(), value.trailing.unwrap())),
                     004 => Ok(Self::RplMyInfo{
                         client: value.params.get(0).unwrap().clone(),
-                        servername: value.params.get(1).unwrap().clone(),
-                        version: value.params.get(2).unwrap().clone(),
+                        server_name: value.params.get(1).unwrap().clone(),
+                        server_version: value.params.get(2).unwrap().clone(),
                         // TODO: Parse umodes and cmodes with their own struct
                         umodes: value.params.get(3).unwrap().clone(),
                         cmodes: value.params.get(4).unwrap().clone(),
@@ -287,8 +287,8 @@ impl From<IrcCommand> for GenericIrcCommand {
             },
             IrcCommand::RplMyInfo {
                 client,
-                servername,
-                version,
+                server_name: servername,
+                server_version: version,
                 umodes,
                 cmodes,
                 cmodes_params

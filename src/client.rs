@@ -68,6 +68,12 @@ impl IntoFuture for ClientBuilder {
 
                 status: Arc::new(Mutex::new(ConnectionStatus::Connecting)),
                 motd: Arc::new(Mutex::new(Motd::Empty)),
+
+                server_name: Arc::new(Mutex::new(String::new())),
+                server_version: Arc::new(Mutex::new(String::new())),
+                umodes: Arc::new(Mutex::new(String::new())),
+                cmodes: Arc::new(Mutex::new(String::new())),
+                cmodes_params: Arc::new(Mutex::new(String::new())),
             })
         })
     }
@@ -93,6 +99,12 @@ pub struct Client {
 
     status: Arc<Mutex<ConnectionStatus>>,
     motd: Arc<Mutex<Motd>>,
+
+    server_name: Arc<Mutex<String>>,
+    server_version: Arc<Mutex<String>>,
+    umodes: Arc<Mutex<String>>,
+    cmodes: Arc<Mutex<String>>,
+    cmodes_params: Arc<Mutex<String>>,
 }
 
 impl Client {
@@ -114,6 +126,12 @@ impl Client {
 
             let status = self.status.clone();
             let motd = self.motd.clone();
+
+            let client_server_name = self.server_name.clone();
+            let client_server_version = self.server_version.clone();
+            let client_umodes = self.umodes.clone();
+            let client_cmodes = self.cmodes.clone();
+            let client_cmodes_params = self.cmodes_params.clone();
 
             for event_handler in event_handlers.iter() {
                 let status = status.lock().await;
@@ -173,19 +191,30 @@ impl Client {
                         },
                         IrcCommand::RplMyInfo{
                             client,
-                            servername,
-                            version,
+                            server_name,
+                            server_version,
                             umodes,
                             cmodes,
                             cmodes_params,
                         } => {
                             if client == username.as_str() {
-                                if let Some(cmodes_params) = cmodes_params {
-                                    // TODO: Message formatting should probably be handled by the client
-                                    vec![Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}, CModes Params: {}", servername, version, umodes, cmodes, cmodes_params))]
-                                } else {
-                                    vec![Event::WelcomeMsg(format!("Server: {}, Version: {}, UModes: {}, CModes: {}", servername, version, umodes, cmodes))]
+                                let mut client_server_name = client_server_name.lock().await;
+                                let mut client_server_version = client_server_version.lock().await;
+                                let mut client_umodes = client_umodes.lock().await;
+                                let mut client_cmodes = client_cmodes.lock().await;
+
+                                *client_server_name = server_name.clone();
+                                *client_server_version = server_version.clone();
+                                *client_umodes = umodes.clone();
+                                *client_cmodes = cmodes.clone();
+                                
+                                if let Some(cmodes_params) = cmodes_params.clone() {
+                                    let mut client_cmodes_params = client_cmodes_params.lock().await;
+                                    *client_cmodes_params = cmodes_params.clone();
                                 }
+
+                                // TODO: Message doesn't need to be printed to the user, but it might be a good idea to add an event for it
+                                vec![]
                             } else {
                                 vec![]
                             }
